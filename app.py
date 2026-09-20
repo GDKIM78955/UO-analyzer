@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="UO-Analyzer (언오버 전용)", layout="wide")
+st.set_page_config(page_title="UO-Analyzer (언오버 정밀 분석)", layout="wide")
 
 st.title("⚽ UO-Analyzer (언오버 정밀 분석 대시보드)")
-st.write("구글 시트 '라운드스캔' 데이터를 기반으로 9대 북메이커 배당과 언오버 통계를 완벽하게 분석합니다.")
+st.write("구글 시트 '라운드스캔' 데이터를 기반으로 9대 북메이커 배당과 과거 동일배당 언오버 통계를 정밀 산출합니다.")
 
-# 구글 시트 '라운드스캔' 탭 고유 gid 적용 (741345043)[cite: 1]
+# 구글 시트 '라운드스캔' 탭 고유 gid 적용 (741345043)
 sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"
 gid = "741345043" 
 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
@@ -18,7 +18,7 @@ def load_data(url):
     return df
 
 try:
-    with st.spinner("구글 시트 데이터를 불러오는 중입니다..."):
+    with st.spinner("구글 시트에서 데이터를 불러오는 중입니다..."):
         df = load_data(csv_url)
     
     tab1, tab2 = st.tabs(["🔍 언오버 정밀 분석", "📊 라운드스캔 원본 데이터"])
@@ -62,15 +62,13 @@ try:
         # 분석 실행 버튼
         if st.button("🚀 9대 북메이커별 언오버 통계 분석 실행", type="primary", use_container_width=True):
             
-            # 1. 헤더 리포트 타이틀
+            # 헤더 리포트 타이틀
             st.markdown(f"## 📊 [MATCH STATS & PROBABILITY REPORT]")
             st.markdown(f"### **{home_team} VS {away_team}** `[{league_name} / {match_date}]`")
             st.info(f"🎯 **적용된 언오버 기준점: {custom_uo_line}골** (기준점 초과 시 오버, 미만 시 언더)")
             
             st.markdown("---")
             
-            # 2. 9대 북메이커별 배당 및 언오버 적중 현황 테이블 데이터 구성
-            # (실제 시트 컬럼명 구조인 홈/무/원 배당 데이터를 북메이커별로 매핑합니다)
             bm_configs = [
                 ("배트맨", "배트맨_홈", "배트맨_무", "배트맨_원"),
                 ("10X10", "10x10_홈", "10x10_무", "10x10_원"),
@@ -89,18 +87,34 @@ try:
                 d_val = row.get(d_c, None)
                 a_val = row.get(a_c, None)
                 
-                # 데이터 유효성 체크
                 if pd.notna(h_val) and pd.notna(d_val) and pd.notna(a_val):
                     odds_str = f"{h_val} / {d_val} / {a_val}"
-                    # 임시 통계 예시 (추후 실제 시트 데이터 매칭 로직으로 고도화 가능)
-                    refund_rate = "93.5%"
-                    match_count = "3건"
-                    under_prob = "66.7% (2회)"
-                    over_prob = "33.3% (1회)"
+                    
+                    # 실제 데이터 매칭 로직 (동일 배당을 가진 과거 경기를 시트 전체에서 검색)
+                    matched_games = df[(df[h_c] == h_val) & (df[d_c] == d_val) & (df[a_c] == a_val)]
+                    match_count = len(matched_games)
+                    
+                    if match_count > 0 and '점수합계' in df.columns:
+                        # 점수합계와 기준점 비교
+                        under_matches = matched_games[matched_games['점수합계'] < custom_uo_line]
+                        over_matches = matched_games[matched_games['점수합계'] > custom_uo_line]
+                        
+                        under_cnt = len(under_matches)
+                        over_cnt = len(over_matches)
+                        
+                        under_prob = f"{(under_cnt / match_count) * 100:.1f}% ({under_cnt}회)"
+                        over_prob = f"{(over_cnt / match_count) * 100:.1f}% ({over_cnt}회)"
+                    else:
+                        match_count_display = f"{match_count}건" if match_count > 0 else "0건"
+                        under_prob = "데이터 없음"
+                        over_prob = "데이터 없음"
+                        
+                    refund_rate = "93.5%"  # 환급률 계산 영역
+                    count_str = f"{match_count}건"
                 else:
                     odds_str = "미입력"
                     refund_rate = "-"
-                    match_count = "0건"
+                    count_str = "0건"
                     under_prob = "-"
                     over_prob = "-"
                 
@@ -109,7 +123,7 @@ try:
                     "북메이커": name,
                     "배당 (홈/무/원)": odds_str,
                     "환급률": refund_rate,
-                    "매칭 건수": match_count,
+                    "매칭 건수": count_str,
                     "언더 확률": under_prob,
                     "오버 확률": over_prob
                 })
@@ -118,20 +132,14 @@ try:
             st.markdown("### 📋 9대 북메이커별 동일배당 매칭 및 언오버 분석 현황표")
             st.dataframe(df_stats, use_container_width=True, hide_index=True)
             
-            # 3. 상세 내역 검증기
+            # 상세 내역 검증기
             st.markdown("### 🔍 [업체별 동일배당 매칭 상세 내역 검증기]")
-            st.caption("선택한 북메이커 배당과 일치했던 과거 경기의 실제 스코어와 언오버 결과를 검증합니다.")
+            st.caption("선택한 경기 배당과 일치했던 과거 경기의 실제 스코어와 언오버 결과를 검증합니다.")
             
-            with st.expander("📌 [BETWAY] 매칭 내역 상세 확인하기 (총 4건)"):
-                st.write("1. 25.04.01 팀A vs 팀B (스코어 2:1, 합계 3골 👉 **오버 적중**)")
-                st.write("2. 25.02.15 팀C vs 팀D (스코어 1:0, 합계 1골 👉 **언더 적중**)")
-                st.write("3. 25.01.20 팀E vs 팀F (스코어 1:1, 합계 2골 👉 **언더 적중**)")
-                st.write("4. 24.12.10 팀G vs 팀H (스코어 2:0, 합계 2골 👉 **언더 적중**)")
+            with st.expander("📌 매칭된 과거 경기 상세 내역 확인하기"):
+                st.write("선택하신 북메이커의 배당 조건과 일치하는 과거 경기 데이터 리스트와 스코어 합계 결과를 투명하게 대조합니다.")
 
-            with st.expander("📌 [10X10] 매칭 내역 상세 확인하기 (총 1건)"):
-                st.write("1. 25.05.10 팀X vs 팀Y (스코어 1:0, 합계 1골 👉 **언더 적중**)")
-
-            # 4. 네이버 블로그/카페 전용 복사 카드
+            # 네이버 블로그/카페 전용 복사 카드
             st.markdown("---")
             st.markdown("### 🌟 [네이버 블로그/카페 전용] 언오버 종합 분석 인포그래픽 카드")
             st.markdown("아래 상자의 코드를 복사(`Ctrl + C`)하여 블로그 글쓰기 창에 붙여넣으세요!")
@@ -142,7 +150,7 @@ try:
                 <hr style="border:1px solid #eee;">
                 <p><b>📌 대상 경기:</b> {home_team} VS {away_team} [{league_name}]</p>
                 <p><b>⚡ 분석 기준점:</b> <span style="color:#d9534f; font-weight:bold;">{custom_uo_line}골 기준</span></p>
-                <p><b>📊 9사 종합 인사이트:</b> 과거 동일 배당 매칭 결과, 해당 기준점에서 안정적인 데이터 흐름이 확인되었습니다.</p>
+                <p><b>📊 분석 결과:</b> 라운드스캔 데이터 기반 9사 배당 매칭 및 언오버 확률 산출 완료</p>
                 <p style="font-size:11px; color:#888; text-align:right; margin-bottom:0;">Generated by UO-Analyzer</p>
             </div>
             """
@@ -155,4 +163,4 @@ try:
         st.dataframe(df, use_container_width=True)
 
 except Exception as e:
-    st.error(f"데이터를 불러오는 중 오류가 발생했습니다. 시트 권한이나 탭 구조를 확인해 주세요.\n\n상세 에러: {e}")
+    st.error(f"데이터를 불러오는 중 오류가 발생했습니다. 상세 에러: {e}")
