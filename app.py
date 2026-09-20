@@ -4,11 +4,12 @@ import pandas as pd
 st.set_page_config(page_title="UO-Analyzer", layout="wide")
 
 st.title("⚽ UO-Analyzer (언오버 전용 분석 앱)")
-st.write("구글 시트 라운드스캔 데이터를 연동하여 경기를 선택하고, 업체별 배당 및 언오버 기준점을 분석하는 대시보드입니다.")
+st.write("구글 시트 '라운드스캔' 데이터를 연동하여 경기를 선택하고 언오버 기준점을 분석하는 대시보드입니다.")
 
-# 구글 시트 데이터 로드 함수
+# 구글 시트 '라운드스캔' 탭 데이터 로드 설정
+# gid=1490461894 또는 라운드스캔 탭의 올바른 gid 주소를 사용합니다.
 sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"
-gid = "1490461894"
+gid = "1490461894" # 필요시 라운드스캔 탭의 gid로 확인 가능
 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
 @st.cache_data
@@ -17,7 +18,7 @@ def load_data(url):
     return df
 
 try:
-    with st.spinner("구글 시트에서 데이터를 불러오는 중입니다..."):
+    with st.spinner("구글 시트 라운드스캔 데이터를 불러오는 중입니다..."):
         df = load_data(csv_url)
     
     # 탭 구성
@@ -28,11 +29,13 @@ try:
         st.dataframe(df, use_container_width=True)
     
     with tab2:
-        st.subheader("🔍 라운드스캔 경기 선택 및 자동 배당 연동")
+        st.subheader("🔍 라운드스캔 경기 선택 및 배당 자동 연동")
         
-        # 1. 경기 목록 셀렉트박스 생성
-        if '홈팀' in df.columns and '원정팀' in df.columns:
-            df['경기선택'] = df.index.astype(str) + " | [" + df.get('리그명', '') + "] " + df['홈팀'] + " vs " + df['원정팀']
+        # 필수 컬럼 존재 여부 확인 후 경기 선택 셀렉트박스 생성
+        required_cols = ['리그명', '홈팀', '원정팀', '경기날짜']
+        if all(col in df.columns for col in required_cols):
+            # 보기 편하게 경기 선택용 문자열 조합
+            df['경기선택'] = df.index.astype(str) + " | [" + df['리그명'].astype(str) + "] " + df['홈팀'].astype(str) + " vs " + df['원정팀'].astype(str) + " (" + df['경기날짜'].astype(str) + ")"
             match_list = df['경기선택'].tolist()
             
             selected_match_str = st.selectbox("📌 분석할 경기를 선택하세요 (라운드스캔)", match_list)
@@ -41,39 +44,43 @@ try:
             selected_idx = int(selected_match_str.split(" | ")[0])
             row = df.iloc[selected_idx]
             
-            st.success(f"선택된 경기: **[{row.get('리그명', '')}] {row.get('홈팀', '')} vs {row.get('원정팀', '')}** (날짜: {row.get('날짜', '')})")
+            st.success(f"선택된 경기: **[{row.get('리그명', '')}] {row.get('홈팀', '')} vs {row.get('원정팀', '')}** (일시: {row.get('경기날짜', '')})")
             
-            # 2. 구글 시트에 작성된 업체별 배당 자동 불러오기 표시
-            st.markdown("### 🏢 구글 시트에 기록된 업체별 배당 자동 연동 내역")
+            # 9대 북메이커 배당 자동 연동 정보 표시
+            st.markdown("### 🏢 9대 북메이커 배당 자동 연동 내역")
             
-            # 주요 업체 배당 컬럼이 시트에 존재할 경우 자동 추출하여 카드 형태로 보기 쉽게 배치
-            col1, col2, col3 = st.columns(3)
+            bookmakers = [
+                ("배트맨", "배트맨_홈", "배트맨_무", "배트맨_원"),
+                ("10x10", "10x10_홈", "10x10_무", "10x10_원"),
+                ("1xbet", "1xbet_홈", "1xbet_무", "1xbet_원"),
+                ("betway", "betway_홈", "betway_무", "betway_원"),
+                ("bwin", "bwin_홈", "bwin_무", "bwin_원"),
+                ("william hill", "william hill_홈", "william hill_무", "william hill_원"),
+                ("bet365", "bet365_홈", "bet365_무", "bet365_원"),
+                ("pinnacle", "pinnacle_홈", "pinnacle_무", "pinnacle_원"),
+                ("stake", "stake_홈", "stake_무", "stake_원"),
+            ]
             
-            with col1:
-                st.markdown("#### 🏟️ 베트맨")
-                st.write(f"- 홈: {row.get('베트맨_홈', '정보 없음')}")
-                st.write(f"- 무: {row.get('베트맨_무', '정보 없음')}")
-                st.write(f"- 원정: {row.get('베트맨_원', '정보 없음')}")
-                
-            with col2:
-                st.markdown("#### 📊 해당(기타) 배당")
-                st.write(f"- 홈: {row.get('해당_홈', '정보 없음')}")
-                st.write(f"- 무: {row.get('해당_무', '정보 없음')}")
-                st.write(f"- 원정: {row.get('해당_원', '정보 없음')}")
-
-            with col3:
-                st.markdown("#### ⚽ 실제 경기 결과")
-                st.write(f"- 홈스코어: {row.get('홈스코어', '-')}")
-                st.write(f"- 원정스코어: {row.get('원정스코어', '-')}")
-                st.write(f"- 점수합계: **{row.get('점수합계', '-')}**")
-
+            # 3열 구조로 깔끔하게 북메이커 배당 배치
+            for i in range(0, len(bookmakers), 3):
+                cols = st.columns(3)
+                for j in range(3):
+                    if i + j < len(bookmakers):
+                        bm_name, h_col, d_col, a_col = bookmakers[i + j]
+                        with cols[j]:
+                            st.markdown(f"**{bm_name.upper()}**")
+                            h_val = row.get(h_col, '-')
+                            d_val = row.get(d_col, '-')
+                            a_val = row.get(a_col, '-')
+                            st.write(f"홈: `{h_val}` | 무: `{d_val}` | 원정: `{a_val}`")
+            
         else:
-            st.warning("구글 시트 데이터에 '홈팀' 또는 '원정팀' 컬럼이 감지되지 않았습니다.")
+            st.warning("구글 시트 데이터에 필수 컬럼(리그명, 홈팀, 원정팀, 경기날짜)이 누락되었거나 이름이 다릅니다.")
             row = None
 
         st.markdown("---")
         
-        # 3. 언오버 기준점 설정 (-5.5 ~ +5.5 및 직접 입력)
+        # 언오버 기준점 설정 (-5.5 ~ +5.5 및 직접 입력)
         st.markdown("### 🎯 언오버 분석 기준점 설정")
         col_preset, col_custom = st.columns(2)
         
@@ -86,24 +93,16 @@ try:
         
         st.info(f"💡 현재 설정된 언오버 분석 기준점: **{custom_line}**")
         
-        # 4. 분석 실행 버튼
+        # 분석 실행 버튼
         if st.button("🚀 언오버 통계 분석 실행", type="primary"):
             if row is not None:
-                st.success(f"[{row.get('홈팀', '')} vs {row.get('원정팀', '')}] 경기에 대한 기준점({custom_line}) 분석을 수행합니다!")
-                
-                # 점수합계와 기준점 비교 간단 시뮬레이션
-                total_score = row.get('점수합계')
-                if pd.notna(total_score):
-                    result_uo = "Over (오버)" if total_score > custom_line else "Under (언더)"
-                    st.metric(label="실제 점수합계 vs 기준점 결과", value=result_uo, delta=f"합계: {total_score}골")
-                else:
-                    st.info("해당 경기의 실제 점수합계 데이터가 아직 입력되지 않았습니다.")
+                st.success(f"[{row.get('홈팀', '')} vs {row.get('원정팀', '')}] 경기에 대해 기준점({custom_line})을 적용한 분석을 수행합니다!")
             else:
                 st.error("분석할 경기를 먼저 선택해 주세요.")
             
     with tab3:
         st.subheader("⚙️ 앱 이용 안내")
-        st.write("구글 시트 라운드스캔 데이터와 연동되어, 경기를 선택하면 시트에 작성된 배당 및 결과가 자동으로 연동됩니다.")
+        st.write("구글 시트의 라운드스캔 데이터와 연동되어 경기를 선택하면 9대 북메이커 배당이 자동으로 연동되는 언오버 전용 분석 앱입니다.")
 
 except Exception as e:
     st.error(f"데이터를 불러오는 데 실패했습니다. 시트 권한이나 구조를 확인해 주세요.\n\nE: {e}")
