@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="UO-Analyzer", layout="wide")
 
 st.title("⚽ UO-Analyzer (언오버 전용 분석 앱)")
-st.write("구글 시트 데이터를 연동하여 언오버 경기를 분석하는 대시보드입니다.")
+st.write("구글 시트 데이터를 연동하여 언오버 기준점 및 9대 북메이커 배당을 분석하는 대시보드입니다.")
 
 # 구글 시트 데이터 로드 함수
 sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"
@@ -20,43 +20,18 @@ try:
     with st.spinner("구글 시트에서 데이터를 불러오는 중입니다..."):
         df = load_data(csv_url)
     
-    # 탭 구성
-    tab1, tab2, tab3 = st.tabs(["📊 원본 데이터", "🔍 언오버 분석 (라운드스캔)", "⚙️ 설정 및 안내"])
+    # 탭 구성 (보기 편하게 분리)
+    tab1, tab2, tab3 = st.tabs(["📊 원본 데이터", "🔍 언오버 배당 및 기준점 분석", "⚙️ 설정 및 안내"])
     
     with tab1:
         st.subheader("📊 구글 시트 원본 데이터")
         st.dataframe(df, use_container_width=True)
     
     with tab2:
-        st.subheader("🔍 라운드스캔 경기 선택 및 언오버 분석")
+        st.subheader("🎯 언오버 기준점 및 9대 북메이커 배당 입력")
         
-        # 1. 경기 목록 구성 (컬럼명에 따라 '홈팀', '원정팀' 등이 있다고 가정, 데이터에 맞춰 유연하게 처리)
-        # 만약 시트에 '홈팀', '원정팀' 또는 경기명을 조합할 수 있는 컬럼이 있다면 이를 활용합니다.
-        # 예시로 '홈팀', '원정팀' 컬럼이 존재할 경우를 대비한 코드입니다.
-        if '홈팀' in df.columns and '원정팀' in df.columns:
-            df['경기선택'] = df.index.astype(str) + " | " + df.get('리그명', '') + " : " + df['홈팀'] + " vs " + df['원정팀']
-            match_list = df['경기선택'].tolist()
-            
-            selected_match_str = st.selectbox("📌 분석할 경기를 선택하세요 (라운드스캔)", match_list)
-            
-            # 선택된 행 추출
-            selected_idx = int(selected_match_str.split(" | ")[0])
-            selected_row = df.iloc[selected_idx]
-            
-            st.success(f"선택된 경기: **{selected_row.get('홈팀', '')} vs {selected_row.get('원정팀', '')}**")
-            
-            # 선택된 경기 상세 정보 표시
-            st.markdown("#### 📋 선택된 경기 상세 정보")
-            st.json(selected_row.to_dict())
-            
-        else:
-            st.warning("구글 시트 데이터에 '홈팀' 또는 '원정팀' 컬럼이 감지되지 않았습니다. 원본 데이터 탭에서 컬럼명을 확인해 주세요.")
-            selected_row = None
-
-        st.markdown("---")
-        
-        # 2. 언오버 기준점 설정 (-5.5 ~ +5.5 및 직접 입력)
-        st.markdown("### 🎯 언오버 기준점 설정")
+        # 1. 언오버 기준점 설정 (-5.5 ~ +5.5 및 직접 입력)
+        st.markdown("### 1️⃣ 언오버 기준점 설정")
         col_preset, col_custom = st.columns(2)
         
         with col_preset:
@@ -66,19 +41,45 @@ try:
         with col_custom:
             custom_line = st.number_input("또는 기준점 직접 입력 (-5.5 ~ +5.5)", value=float(selected_preset), step=0.5)
         
-        st.info(f"💡 현재 설정된 분석 기준점: **{custom_line}**")
+        st.info(f"💡 현재 선택된 언오버 분석 기준점: **{custom_line}**")
         
-        # 3. 분석 실행 버튼
-        if st.button("🚀 언오버 통계 분석 실행", type="primary"):
-            if selected_row is not None:
-                st.success(f"[{selected_row.get('홈팀', '')} vs {selected_row.get('원정팀', '')}] 경기에 대해 기준점 {custom_line} 기준 분석을 수행합니다!")
-                # 추후 분석 로직 추가 자리
-            else:
-                st.error("분석할 경기를 먼저 올바르게 선택해 주세요.")
+        st.markdown("---")
+        
+        # 2. 9대 북메이커 언오버 배당 입력 폼
+        st.markdown("### 2️⃣ 9대 북메이커 언오버 배당 입력")
+        bookmakers = [
+            "배트맨", "10X10", "1XBET", "BETWAY", "BWIN", 
+            "WILLIAM HILL", "BET365", "PINNACLE", "STAKE"
+        ]
+        
+        # 3열 구조로 북메이커 입력창 배치
+        odds_data = {}
+        for i in range(0, len(bookmakers), 3):
+            cols = st.columns(3)
+            for j in range(3):
+                if i + j < len(bookmakers):
+                    bm = bookmakers[i + j]
+                    with cols[j]:
+                        st.markdown(f"**[{i+j+1}] {bm}**")
+                        over_odd = st.number_input(f"{bm} 오버(Over) 배당", value=1.85, step=0.01, key=f"over_{bm}")
+                        under_odd = st.number_input(f"{bm} 언더(Under) 배당", value=1.85, step=0.01, key=f"under_{bm}")
+                        odds_data[bm] = {"over": over_odd, "under": under_odd}
+        
+        st.markdown("---")
+        
+        # 3. 분석 실행 버튼 및 결과 영역
+        if st.button("🚀 동일 배당 및 언오버 확률 통계 분석 실행", type="primary"):
+            st.success("분석이 완료되었습니다! (선택하신 기준점과 배당을 바탕으로 한 통계 결과가 여기에 출력됩니다.)")
+            
+            # 추후 블로그 복사 카드나 상세 통계표가 들어갈 자리
+            st.markdown("#### 📊 [카드 1] 언오버 동일 배당 매칭 통계 인포그래픽")
+            st.code("여기에 네이버 블로그/카페용 마크다운 또는 HTML 결과가 출력됩니다.", language="markdown")
             
     with tab3:
         st.subheader("⚙️ 앱 이용 안내")
-        st.write("구글 시트의 라운드스캔 데이터를 연동하여 경기를 선택하고, 언오버 기준점(-5.5 ~ +5.5)을 설정하여 분석하는 공간입니다.")
+        st.write("이 앱은 기존 승무패 구조에서 전환된 **언오버 전용 분석 시스템**입니다.")
+        st.markdown("- **기준점 설정**: -5.5 ~ +5.5 범위 선택 및 직접 입력 지원")
+        st.markdown("- **9대 북메이커**: 각사별 오버/언더 배당 입력 및 종합 분석 제공")
 
 except Exception as e:
-    st.error(f"데이터를 불러오는 데 실패했습니다. 시트 권한이나 구조를 확인해 주세요.\n\nE: {e}")
+    st.error(f"데이터를 불러오는 데 실패했습니다. 시트 권한을 확인해 주세요.\n\nE: {e}")
