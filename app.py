@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="UO-Analyzer", layout="wide")
 
 st.title("⚽ UO-Analyzer (언오버 전용 분석 앱)")
-st.write("구글 시트 '라운드스캔' 데이터를 연동하여 경기를 선택하고 배당 및 언오버 기준점을 분석하는 대시보드입니다.")
+st.write("구글 시트 '라운드스캔' 데이터를 연동하여 경기를 선택하고, 2.5~8.5 언오버 기준점에 따른 통계를 분석하는 대시보드입니다.")
 
 # 구글 시트 '라운드스캔' 탭 고유 gid 적용 (741345043)
 sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"
@@ -14,7 +14,6 @@ csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&
 @st.cache_data
 def load_data(url):
     df = pd.read_csv(url)
-    # 컬럼명 앞뒤 공백 제거
     df.columns = df.columns.str.strip()
     return df
 
@@ -77,34 +76,36 @@ try:
                             st.write(f"홈: `{h_val}` | 무: `{d_val}` | 원정: `{a_val}`")
             
         else:
-            st.warning(f"구글 시트에서 '홈팀' 또는 '원정팀' 컬럼을 찾지 못했습니다. 현재 컬럼: {df.columns.tolist()}")
+            st.warning(f"구글 시트에서 '홈팀' 또는 '원정팀' 컬럼을 찾지 못했습니다.")
             row = None
 
         st.markdown("---")
         
-        # 언오버 기준점 설정 (-5.5 ~ +5.5 및 직접 입력)
+        # 언오버 기준점 설정 (2.5 ~ 8.5 0.5단위 및 직접 입력)
         st.markdown("### 🎯 언오버 분석 기준점 설정")
         col_preset, col_custom = st.columns(2)
         
         with col_preset:
-            preset_options = [round(x * 0.5, 1) for x in range(-11, 12)]
-            selected_preset = st.selectbox("기준점 선택 (Preset)", preset_options, index=15) # 기본 2.0~2.5 부근
+            # 2.5부터 8.5까지 0.5 단위 리스트 생성
+            uo_preset_options = [round(2.5 + x * 0.5, 1) for x in range(13)] # 2.5, 3.0, ..., 8.5
+            selected_uo_preset = st.selectbox("언오버 기준점 선택 (Preset)", uo_preset_options, index=0) # 기본 2.5
             
         with col_custom:
-            custom_line = st.number_input("또는 기준점 직접 입력 (-5.5 ~ +5.5)", value=float(selected_preset), step=0.5)
+            custom_uo_line = st.number_input("또는 언오버 기준점 직접 입력 (2.5 ~ 8.5)", value=float(selected_uo_preset), min_value=0.5, max_value=15.0, step=0.5)
         
-        st.info(f"💡 현재 설정된 언오버 분석 기준점: **{custom_line}**")
+        st.info(f"💡 현재 설정된 언오버 분석 기준점: **{custom_uo_line}골**")
         
         # 분석 실행 버튼
-        if st.button("🚀 언오버 통계 분석 실행", type="primary"):
+        if st.button("🚀 동일 배당 기반 언오버 통계 분석 실행", type="primary"):
             if row is not None:
-                st.success(f"[{row.get('홈팀', '')} vs {row.get('원정팀', '')}] 경기에 대해 기준점({custom_line})을 적용한 분석을 수행합니다!")
+                st.success(f"[{row.get('홈팀', '')} vs {row.get('원정팀', '')}] 경기의 북메이커 배당과 기준점({custom_uo_line}골)을 매칭하여 과거 동일 배당 통계 분석을 수행합니다!")
+                # 추후 각 업체별 배당과 과거 점수합계를 매칭하는 통계 로직이 들어갈 자리입니다.
             else:
                 st.error("분석할 경기를 먼저 선택해 주세요.")
             
     with tab3:
         st.subheader("⚙️ 앱 이용 안내")
-        st.write("구글 시트 '라운드스캔' 탭과 완벽 연동되어 해당 회차 경기들만 깔끔하게 불러옵니다.")
+        st.write("라운드스캔 경기 목록과 9대 북메이커 배당을 자동 연동하고, 2.5 ~ 8.5 언오버 기준점에 따른 과거 동일 배당 매칭 통계를 산출합니다.")
 
 except Exception as e:
     st.error(f"데이터를 불러오는 데 실패했습니다. 시트 권한이나 구조를 확인해 주세요.\n\nE: {e}")
