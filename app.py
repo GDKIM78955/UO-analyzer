@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
 
+st.set_page_config(page_title="UO-Analyzer", layout="wide")
+
 st.title("⚽ UO-Analyzer (언오버 전용 분석 앱)")
 st.write("구글 시트 데이터를 연동하여 언오버 경기를 분석하는 대시보드입니다.")
 
-# 구글 시트 CSV 내보내기 주소 변환
+# 구글 시트 데이터 로드 함수
 sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"
 gid = "1490461894"
 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
@@ -18,11 +20,38 @@ try:
     with st.spinner("구글 시트에서 데이터를 불러오는 중입니다..."):
         df = load_data(csv_url)
     
-    st.success("데이터를 성공적으로 불러왔습니다!")
+    # 탭 구성 (보기 편하게 분리)
+    tab1, tab2, tab3 = st.tabs(["📊 원본 데이터", "🔍 언오버 분석", "⚙️ 설정 및 안내"])
     
-    # 데이터 미리보기
-    st.subheader("📊 구글 시트 원본 데이터")
-    st.dataframe(df)
+    with tab1:
+        st.subheader("📊 구글 시트 원본 데이터")
+        st.dataframe(df, use_container_width=True)
+    
+    with tab2:
+        st.subheader("🔍 언오버 기준점 통계 분석")
+        
+        # 기준점 선택 및 직접 입력 옵션
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # -5.5부터 +5.5까지 0.5 단위 리스트 생성 (-5.5, -5.0, ..., 5.0, 5.5)
+            preset_options = [round(x * 0.5, 1) for x in range(-11, 12)]
+            selected_preset = st.selectbox("기준점 선택 (Preset)", preset_options, index=11) # 기본값 0.0 근처 등
+            
+        with col2:
+            custom_line = st.number_input("또는 기준점 직접 입력", value=float(selected_preset), step=0.5)
+        
+        st.info(f"현재 설정된 분석 기준점: **{custom_line}**")
+        
+        # 분석 기능 영역 (데이터에 득점 관련 컬럼이 있다고 가정하여 예시 구성)
+        st.write("선택하신 기준점을 바탕으로 한 통계 및 매칭 결과가 여기에 표시됩니다.")
+        # 추후 득점 컬럼이나 배당 데이터를 활용한 필터링 로직을 이 곳에 추가할 수 있습니다.
+        
+    with tab3:
+        st.subheader("⚙️ 앱 이용 안내")
+        st.write("이 앱은 구글 시트와 연동되어 실시간으로 언오버 경기를 분석하는 도구입니다.")
+        st.markdown("- **원본 데이터 탭**: 시트에 입력된 전체 데이터를 확인합니다.")
+        - **언오버 분석 탭**: 원하는 기준(-5.5 ~ +5.5 및 직접 입력)을 통해 경기를 필터링하고 통계를 냅니다.")
 
 except Exception as e:
-    st.error(f"데이터를 불러오는 데 실패했습니다. 구글 시트가 '링크가 있는 모든 사용자에게 공개'되어 있는지 확인해 주세요.\n\n에러 내용: {e}")
+    st.error(f"데이터를 불러오는 데 실패했습니다. 시트 권한을 확인해 주세요.\n\n에러 내용: {e}")
