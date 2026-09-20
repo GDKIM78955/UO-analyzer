@@ -6,15 +6,15 @@ st.set_page_config(page_title="UO-Analyzer", layout="wide")
 st.title("⚽ UO-Analyzer (언오버 전용 분석 앱)")
 st.write("구글 시트 '라운드스캔' 데이터를 연동하여 경기를 선택하고 배당 및 언오버 기준점을 분석하는 대시보드입니다.")
 
-# 구글 시트 '라운드스캔' 탭 데이터 로드 설정
+# 구글 시트 '라운드스캔' 탭 고유 gid 적용 (741345043)
 sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"
-gid = "1490461894" 
+gid = "741345043" 
 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
 @st.cache_data
 def load_data(url):
     df = pd.read_csv(url)
-    # 컬럼명 앞뒤 공백 제거 (혹시 모를 공백 오류 방지)
+    # 컬럼명 앞뒤 공백 제거
     df.columns = df.columns.str.strip()
     return df
 
@@ -26,17 +26,13 @@ try:
     tab1, tab2, tab3 = st.tabs(["📊 원본 데이터", "🔍 언오버 분석 (라운드스캔)", "⚙️ 설정 및 안내"])
     
     with tab1:
-        st.subheader("📊 구글 시트 원본 데이터")
+        st.subheader("📊 구글 시트 라운드스캔 원본 데이터")
         st.dataframe(df, use_container_width=True)
     
     with tab2:
         st.subheader("🔍 라운드스캔 경기 선택 및 배당 자동 연동")
         
-        # 데이터프레임 컬럼 확인용 출력 (디버깅 참고용)
-        # st.write("감지된 컬럼 목록:", df.columns.tolist())
-        
         if '홈팀' in df.columns and '원정팀' in df.columns:
-            # 리그명과 날짜 컬럼명이 약간 다를 경우를 대비한 유연한 처리
             col_league = '리그명' if '리그명' in df.columns else df.columns[1]
             col_date = '경기날짜' if '경기날짜' in df.columns else df.columns[2]
             
@@ -81,7 +77,7 @@ try:
                             st.write(f"홈: `{h_val}` | 무: `{d_val}` | 원정: `{a_val}`")
             
         else:
-            st.warning(f"구글 시트에서 '홈팀' 또는 '원정팀' 컬럼을 찾지 못했습니다. 현재 시트의 컬럼들을 확인해 주세요: {df.columns.tolist()}")
+            st.warning(f"구글 시트에서 '홈팀' 또는 '원정팀' 컬럼을 찾지 못했습니다. 현재 컬럼: {df.columns.tolist()}")
             row = None
 
         st.markdown("---")
@@ -108,7 +104,7 @@ try:
             
     with tab3:
         st.subheader("⚙️ 앱 이용 안내")
-        st.write("구글 시트의 라운드스캔 데이터와 연동되어 경기를 선택하면 9대 북메이커 배당이 자동으로 연동되는 언오버 전용 분석 앱입니다.")
+        st.write("구글 시트 '라운드스캔' 탭과 완벽 연동되어 해당 회차 경기들만 깔끔하게 불러옵니다.")
 
 except Exception as e:
     st.error(f"데이터를 불러오는 데 실패했습니다. 시트 권한이나 구조를 확인해 주세요.\n\nE: {e}")
