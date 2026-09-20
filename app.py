@@ -4,17 +4,18 @@ import pandas as pd
 st.set_page_config(page_title="UO-Analyzer", layout="wide")
 
 st.title("⚽ UO-Analyzer (언오버 전용 분석 앱)")
-st.write("구글 시트 '라운드스캔' 데이터를 연동하여 경기를 선택하고 언오버 기준점을 분석하는 대시보드입니다.")
+st.write("구글 시트 '라운드스캔' 데이터를 연동하여 경기를 선택하고 배당 및 언오버 기준점을 분석하는 대시보드입니다.")
 
 # 구글 시트 '라운드스캔' 탭 데이터 로드 설정
-# gid=1490461894 또는 라운드스캔 탭의 올바른 gid 주소를 사용합니다.
 sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"
-gid = "1490461894" # 필요시 라운드스캔 탭의 gid로 확인 가능
+gid = "1490461894" 
 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
 @st.cache_data
 def load_data(url):
     df = pd.read_csv(url)
+    # 컬럼명 앞뒤 공백 제거 (혹시 모를 공백 오류 방지)
+    df.columns = df.columns.str.strip()
     return df
 
 try:
@@ -31,11 +32,16 @@ try:
     with tab2:
         st.subheader("🔍 라운드스캔 경기 선택 및 배당 자동 연동")
         
-        # 필수 컬럼 존재 여부 확인 후 경기 선택 셀렉트박스 생성
-        required_cols = ['리그명', '홈팀', '원정팀', '경기날짜']
-        if all(col in df.columns for col in required_cols):
+        # 데이터프레임 컬럼 확인용 출력 (디버깅 참고용)
+        # st.write("감지된 컬럼 목록:", df.columns.tolist())
+        
+        if '홈팀' in df.columns and '원정팀' in df.columns:
+            # 리그명과 날짜 컬럼명이 약간 다를 경우를 대비한 유연한 처리
+            col_league = '리그명' if '리그명' in df.columns else df.columns[1]
+            col_date = '경기날짜' if '경기날짜' in df.columns else df.columns[2]
+            
             # 보기 편하게 경기 선택용 문자열 조합
-            df['경기선택'] = df.index.astype(str) + " | [" + df['리그명'].astype(str) + "] " + df['홈팀'].astype(str) + " vs " + df['원정팀'].astype(str) + " (" + df['경기날짜'].astype(str) + ")"
+            df['경기선택'] = df.index.astype(str) + " | [" + df[col_league].astype(str) + "] " + df['홈팀'].astype(str) + " vs " + df['원정팀'].astype(str) + " (" + df[col_date].astype(str) + ")"
             match_list = df['경기선택'].tolist()
             
             selected_match_str = st.selectbox("📌 분석할 경기를 선택하세요 (라운드스캔)", match_list)
@@ -44,7 +50,7 @@ try:
             selected_idx = int(selected_match_str.split(" | ")[0])
             row = df.iloc[selected_idx]
             
-            st.success(f"선택된 경기: **[{row.get('리그명', '')}] {row.get('홈팀', '')} vs {row.get('원정팀', '')}** (일시: {row.get('경기날짜', '')})")
+            st.success(f"선택된 경기: **[{row.get(col_league, '')}] {row.get('홈팀', '')} vs {row.get('원정팀', '')}** (일시: {row.get(col_date, '')})")
             
             # 9대 북메이커 배당 자동 연동 정보 표시
             st.markdown("### 🏢 9대 북메이커 배당 자동 연동 내역")
@@ -75,7 +81,7 @@ try:
                             st.write(f"홈: `{h_val}` | 무: `{d_val}` | 원정: `{a_val}`")
             
         else:
-            st.warning("구글 시트 데이터에 필수 컬럼(리그명, 홈팀, 원정팀, 경기날짜)이 누락되었거나 이름이 다릅니다.")
+            st.warning(f"구글 시트에서 '홈팀' 또는 '원정팀' 컬럼을 찾지 못했습니다. 현재 시트의 컬럼들을 확인해 주세요: {df.columns.tolist()}")
             row = None
 
         st.markdown("---")
