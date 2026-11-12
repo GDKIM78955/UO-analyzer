@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import urllib3
 import re
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 import calendar
 
 # SSL 보안 경고 무시 (일부 도매 사이트 크롤링 오류 방지)
@@ -20,7 +21,7 @@ today = datetime.now(KST).date()
 st.title("🛒 스마트스토어 위탁판매 & 블로그·수익장부 올인원 매니저")
 st.write(
     f"📅 **오늘 날짜: {today.strftime('%Y년 %m월 %d일')}** | "
-    "시즌 소싱 캘린더, 도매처 품절·가격인상 스캔, 수익장부, 5종 인포그래픽 제작, **SEO 상품명·블로그 원고 생성**, **CS 답변 복사함**을 한곳에서 관리합니다."
+    "시즌 소싱 캘린더, 도매처 품절·가격인상 스캔, **월별 누적 수익장부**, 5종 인포그래픽 제작, SEO 상품명·블로그 원고, CS 답변 복사함을 한곳에서 관리합니다."
 )
 
 # ==========================================
@@ -113,11 +114,13 @@ if golden_events:
                 )
 
 # ==========================================
-# 2. 구글 시트 자동 연동 설정
+# 2. 구글 시트 자동 연동 설정 (1번 탭: 상품관리_및_장부 / 2번 탭: 월별_수익지출_요약)
 # ==========================================
 DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/12g0e-ER14x2cyx2ipEAluZjHU5FAxUNpKIrg6sP1jiI"
 gid = "0"
 csv_url = f"{DEFAULT_SHEET_URL}/export?format=csv&gid={gid}"
+monthly_sheet_name = quote("월별_수익지출_요약")
+monthly_csv_url = f"{DEFAULT_SHEET_URL}/gviz/tq?tqx=out:csv&sheet={monthly_sheet_name}"
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -164,7 +167,6 @@ def check_wholesale_status(url, recorded_wholesale_price=0, selling_price=0, fee
         if detected:
             return "🔴 품절/종료 의심", f"감지된 단어: {', '.join(detected[:3])}"
 
-        # 마진율 위험도 및 웹페이지 내 가격 변동 감지
         if selling_price > 0 and recorded_wholesale_price > 0:
             est_fee = int(round(selling_price * (fee_rate / 100)))
             est_margin = selling_price - recorded_wholesale_price - est_fee
@@ -172,11 +174,9 @@ def check_wholesale_status(url, recorded_wholesale_price=0, selling_price=0, fee
             if margin_pct < 10.0:
                 return "🟠 역마진/저마진 주의", f"현재 마진율 {margin_pct:.1f}% (순수익 {est_margin:,}원) - 판매가 인상 권장!"
 
-        # 페이지 내 가격 패턴(예: 18,500원) 스캔 후 시트 원가와 비교
         if recorded_wholesale_price > 1000:
             price_matches = re.findall(r"([1-9][0-9]{0,2}(?:,[0-9]{3})+)\s*원", page_text)
             extracted_prices = [int(p.replace(",", "")) for p in price_matches]
-            # 시트 원가 대비 +5% ~ +60% 사이로 근접하게 오른 가격이 페이지 주요 위치에 있는지 확인
             higher_candidates = [
                 p for p in extracted_prices
                 if int(recorded_wholesale_price * 1.05) <= p <= int(recorded_wholesale_price * 1.6)
@@ -195,13 +195,14 @@ def check_wholesale_status(url, recorded_wholesale_price=0, selling_price=0, fee
 # ==========================================
 # 4. 원클릭 클립보드 복사 버튼 생성 헬퍼 함수
 # ==========================================
-def render_copy_box(title_label, content_text, box_id, btn_color="#03c75a", height=220):
+def render_copy_box(title_label, content_text, box_id, btn_color="#03c75a", height=220, display_text=None):
     escaped_text = (
         content_text.replace("\\", "\\\\")
         .replace("`", "\\`")
         .replace("$", "\\$")
     )
-    html_Display = content_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+    shown_raw = display_text if display_text is not None else content_text
+    html_display = shown_raw.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
     comp_code = f"""
     <!DOCTYPE html>
     <html>
@@ -265,11 +266,11 @@ def render_copy_box(title_label, content_text, box_id, btn_color="#03c75a", heig
             <div class="top-row">
                 <div>
                     <span class="box-title">{title_label}</span>
-                    <span id="msg_{box_id}" class="msg-toast">✅ 복사 완료! (Ctrl+V)</span>
+                    <span id="msg_{box_id}" class="msg-toast">✅ 복사 완료! 시트에 Ctrl+V 하세요!</span>
                 </div>
-                <button class="copy-btn" onclick="copyText_{box_id}()">📋 원클릭 텍스트 복사</button>
+                <button class="copy-btn" onclick="copyText_{box_id}()">📋 원클릭 복사하기</button>
             </div>
-            <div class="content-area">{html_Display}</div>
+            <div class="content-area">{html_display}</div>
         </div>
         <script>
         function copyText_{box_id}() {{
@@ -294,7 +295,7 @@ def render_copy_box(title_label, content_text, box_id, btn_color="#03c75a", heig
         function showToast_{box_id}() {{
             const el = document.getElementById('msg_{box_id}');
             el.style.display = 'inline';
-            setTimeout(() => {{ el.style.display = 'none'; }}, 3000);
+            setTimeout(() => {{ el.style.display = 'none'; }}, 3500);
         }}
         </script>
     </body>
@@ -312,6 +313,11 @@ try:
             df = load_data(csv_url)
         except Exception:
             df = pd.DataFrame()
+
+        try:
+            df_monthly_raw = load_data(monthly_csv_url)
+        except Exception:
+            df_monthly_raw = pd.DataFrame()
 
     required_cols = ["상품명", "도매처링크", "도매원가", "판매가"]
     if df.empty or not all(col in df.columns for col in required_cols):
@@ -382,6 +388,14 @@ try:
             },
         ])
 
+    # 월별_수익지출_요약 탭 기본 샘플 세팅
+    if df_monthly_raw.empty or "기준월" not in df_monthly_raw.columns:
+        df_monthly_raw = pd.DataFrame([
+            {"기준월": "2026-09", "총매출액": 1850000, "도매원가합계": 1020000, "네이버수수료합계": 103600, "광고및기타지출": 80000, "최종순수익": 646400, "수익률": "34.9%"},
+            {"기준월": "2026-10", "총매출액": 2420000, "도매원가합계": 1310000, "네이버수수료합계": 135520, "광고및기타지출": 95000, "최종순수익": 879480, "수익률": "36.3%"},
+            {"기준월": "2026-11", "총매출액": 3082000, "도매원가합계": 1618300, "네이버수수료합계": 172592, "광고및기타지출": 100000, "최종순수익": 1191108, "수익률": "38.6%"},
+        ])
+
     def clean_num(series, default=0):
         if series is None:
             return pd.Series([default] * len(df))
@@ -404,7 +418,7 @@ try:
     tab_cal, tab_scan, tab_ledger, tab_info, tab_seo, tab_cs, tab_raw = st.tabs([
         "📅 1. 시즌 캘린더",
         "🚨 2. 품절·가격인상 스캔",
-        "💰 3. 수익장부 & 목표마진 역산",
+        "💰 3. 수익장부 & 월별 기록",
         "🎨 4. 5종 인포그래픽 스튜디오",
         "🚀 5. SEO 상품명 & 블로그 원고",
         "💬 6. 고객 CS 1초 복사함",
@@ -611,16 +625,17 @@ try:
             )
 
     # ==========================================
-    # TAB 3: 수익·지출 장부 대시보드 & 목표 마진 역산 시뮬레이터
+    # TAB 3: 수익·지출 장부 대시보드 & 월별 누적 기록 관리
     # ==========================================
     with tab_ledger:
-        st.subheader("💰 스마트스토어 수익·지출 통합 장부 대시보드")
+        st.subheader("💰 스마트스토어 수익·지출 통합 장부 & 월별 정산 기록")
         st.write(
-            "구글 시트에 입력된 `도매원가`, `판매가`, `누적판매수량`, `광고및기타지출`을 기반으로 "
-            "**총매출·총지출·최종 순수익**을 실시간 정산합니다."
+            "현재 상품별 실적을 실시간 정산하고, **월말 마감 시 한 줄 복사로 구글 시트(`월별_수익지출_요약` 탭)에 영구 기록**하여 월별 성장 추이를 관리합니다."
         )
 
-        col_fee_opt, col_extra_exp = st.columns(2)
+        col_ym, col_fee_opt, col_extra_exp = st.columns(3)
+        with col_ym:
+            settlement_ym = st.text_input("🗓️ 정산 기준 연월 (예: 2026-11)", value=today.strftime("%Y-%m"))
         with col_fee_opt:
             ledger_fee_rate = st.number_input("📉 정산 기준 네이버 수수료율 (%)", value=5.6, step=0.1, key="ledger_fee")
         with col_extra_exp:
@@ -670,7 +685,8 @@ try:
                 "실마진율": f"{item_roi:.1f}%",
             })
 
-        total_expense = total_wholesale_cost + total_naver_fee + total_ad_cost + extra_fixed_cost
+        total_ad_and_extra = total_ad_cost + extra_fixed_cost
+        total_expense = total_wholesale_cost + total_naver_fee + total_ad_and_extra
         final_net_profit = total_rev - total_expense
         overall_margin_rate = (final_net_profit / total_rev * 100) if total_rev > 0 else 0.0
 
@@ -678,7 +694,7 @@ try:
         k1.metric("📈 총 매출액 (Gross 수익)", f"{total_rev:,}원")
         k2.metric("💸 총 지출 합계 (원가+수수료+광고)", f"{total_expense:,}원", f"-도매원가 {total_wholesale_cost:,}원", delta_color="inverse")
         k3.metric("💎 최종 순수익 (Net Profit)", f"{final_net_profit:,}원", f"마진율 {overall_margin_rate:.1f}%")
-        k4.metric("📢 마케팅·기타 총지출", f"{total_ad_cost + extra_fixed_cost:,}원", f"네이버수수료 {total_naver_fee:,}원 별도", delta_color="off")
+        k4.metric("📢 마케팅·기타 총지출", f"{total_ad_and_extra:,}원", f"네이버수수료 {total_naver_fee:,}원 별도", delta_color="off")
 
         st.markdown("---")
 
@@ -686,12 +702,22 @@ try:
 
         col_l_table, col_l_chart = st.columns([1.35, 1.15], gap="large")
         with col_l_table:
-            st.markdown("#### 📋 상품별 수익·지출 상세 명세서")
+            st.markdown(f"#### 📋 [{settlement_ym}] 상품별 수익·지출 상세 명세서")
             display_cols = [
                 "상품명", "도매처", "판매수량", "총매출액 (수익)",
                 "도매원가 합계", "수수료 합계", "광고/기타지출", "순수익(표시)", "실마진율"
             ]
             st.dataframe(df_ledger[display_cols], use_container_width=True, hide_index=True)
+
+            # CSV 파일로 내 컴퓨터에 백업 다운로드
+            csv_backup_bytes = df_ledger[display_cols].to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                label=f"💾 [{settlement_ym}] 상품별 정산 상세내역 CSV 파일 다운로드 (PC 보관용)",
+                data=csv_backup_bytes,
+                file_name=f"스마트스토어_정산장부_{settlement_ym}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
 
         with col_l_chart:
             st.markdown("#### 🏆 효자 상품 순수익 랭킹 (가로형 한눈에 보기)")
@@ -749,10 +775,106 @@ try:
             rank_height = max(240, len(df_ranked) * 64 + 35)
             components.html(ranking_component_html, height=rank_height, scrolling=True)
 
+        # ==========================================
+        # [신규 핵심 기능] 월별 정산 마감 1초 시트 저장 & 월별 누적 히스토리 보드
+        # ==========================================
+        st.markdown("---")
+        st.markdown("### 🗓️ 월별 정산 기록 마감 & 누적 수익 추이 (구글 시트 `월별_수익지출_요약` 탭 연동)")
+        st.write(
+            "매월 말 정산이 끝나면 아래 **[📋 원클릭 복사하기]** 버튼을 누른 뒤, "
+            f"**[구글 시트 열기]({DEFAULT_SHEET_URL}/edit)**에서 하단 **`월별_수익지출_요약`** 탭의 빈 행 첫 칸(A열)을 클릭하고 **`Ctrl + V`**만 누르세요! "
+            "7개 항목이 칸마다 자동으로 딱 맞춰 들어가 영구 보존됩니다."
+        )
+
+        # 구글 시트 붙여넣기용 탭(\t) 구분 문자열 생성
+        tsv_monthly_row = f"{settlement_ym}\t{total_rev}\t{total_wholesale_cost}\t{total_naver_fee}\t{total_ad_and_extra}\t{final_net_profit}\t{overall_margin_rate:.1f}%"
+        pretty_monthly_preview = (
+            f"📌 [복사될 데이터 미리보기 — 시트 A열 클릭 후 Ctrl+V 하면 7칸에 자동 입력됩니다]\n"
+            f"• 기준월: {settlement_ym}  |  • 총매출액: {total_rev:,}원  |  • 도매원가합계: {total_wholesale_cost:,}원  |  "
+            f"• 네이버수수료: {total_naver_fee:,}원  |  • 광고및기타지출: {total_ad_and_extra:,}원  |  "
+            f"• 최종순수익: {final_net_profit:,}원 ({overall_margin_rate:.1f}%)"
+        )
+        render_copy_box(
+            f"📥 [{settlement_ym}] 월간 정산 마감 데이터 한 줄 복사 (구글 시트 '월별_수익지출_요약' 탭 붙여넣기 전용)",
+            tsv_monthly_row,
+            "monthly_tsv",
+            "#2563eb",
+            145,
+            display_text=pretty_monthly_preview,
+        )
+
+        # 구글 시트 '월별_수익지출_요약' 탭에서 불러온 월별 기록 정제 및 시각화
+        df_m_valid = df_monthly_raw[
+            df_monthly_raw["기준월"].astype(str).str.match(r"^20\d{2}-\d{2}")
+        ].copy()
+
+        if not df_m_valid.empty:
+            for m_col in ["총매출액", "도매원가합계", "네이버수수료합계", "광고및기타지출", "최종순수익"]:
+                if m_col in df_m_valid.columns:
+                    df_m_valid[f"{m_col}_num"] = pd.to_numeric(
+                        df_m_valid[m_col].astype(str).str.replace(r"[^0-9.-]", "", regex=True),
+                        errors="coerce"
+                    ).fillna(0)
+                else:
+                    df_m_valid[f"{m_col}_num"] = 0
+
+            m_hist_left, m_hist_right = st.columns([1.3, 1.2], gap="large")
+            with m_hist_left:
+                st.markdown("#### 📜 구글 시트에 저장된 월별 수익·지출 누적 장부")
+                m_show_rows = []
+                for _, m_r in df_m_valid.iterrows():
+                    m_rev = int(m_r["총매출액_num"])
+                    m_net = int(m_r["최종순수익_num"])
+                    m_rate = (m_net / m_rev * 100) if m_rev > 0 else 0.0
+                    m_show_rows.append({
+                        "기준월": str(m_r["기준월"]),
+                        "총매출액": f"{m_rev:,}원",
+                        "도매원가합계": f"{int(m_r['도매원가합계_num']):,}원",
+                        "수수료합계": f"{int(m_r['네이버수수료합계_num']):,}원",
+                        "광고/기타지출": f"{int(m_r['광고및기타지출_num']):,}원",
+                        "최종순수익": f"{m_net:,}원",
+                        "수익률": f"{m_rate:.1f}%",
+                    })
+                st.dataframe(pd.DataFrame(m_show_rows), use_container_width=True, hide_index=True)
+
+            with m_hist_right:
+                st.markdown("#### 📈 월별 매출 & 최종 순수익 성장 추이")
+                max_m_rev = max(df_m_valid["총매출액_num"].max(), 1)
+                m_bars_html = ""
+                for _, m_r in df_m_valid.iterrows():
+                    ym_str = str(m_r["기준월"])
+                    rev_v = int(m_r["총매출액_num"])
+                    net_v = int(m_r["최종순수익_num"])
+                    rev_w = max(2, min(100, int((rev_v / max_m_rev) * 100)))
+                    net_w = max(2, min(100, int((net_v / max_m_rev) * 100))) if net_v > 0 else 0
+                    m_bars_html += f"""
+                    <div style="margin-bottom: 12px;">
+                        <div style="display:flex; justify-content:space-between; font-size:13.5px; font-weight:800; color:#ffffff; margin-bottom:4px;">
+                            <span>🗓️ {ym_str}</span>
+                            <span>매출 {rev_v:,}원 / <span style="color:#34d399;">순수익 {net_v:,}원</span></span>
+                        </div>
+                        <div style="width:100%; height:10px; background:#0f172a; border-radius:999px; overflow:hidden; margin-bottom:3px;">
+                            <div style="width:{rev_w}%; height:100%; background:#3b82f6; border-radius:999px;"></div>
+                        </div>
+                        <div style="width:100%; height:10px; background:#0f172a; border-radius:999px; overflow:hidden;">
+                            <div style="width:{net_w}%; height:100%; background:#10b981; border-radius:999px;"></div>
+                        </div>
+                    </div>
+                    """
+                m_chart_html = f"""
+                <!DOCTYPE html>
+                <html><head><meta charset="utf-8"></head>
+                <body style="margin:0; padding:0; font-family:'Malgun Gothic',sans-serif; background:transparent;">
+                    <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:16px;">
+                        <div style="font-size:12px; color:#94a3b8; margin-bottom:10px;">🟦 파란 바: 월 총매출액 | 🟩 초록 바: 월 최종 순수익</div>
+                        {m_bars_html}
+                    </div>
+                </body></html>
+                """
+                components.html(m_chart_html, height=max(180, len(df_m_valid) * 62 + 50), scrolling=True)
+
         st.markdown("---")
         st.markdown("### 🧮 [신규 소싱 필수] 목표 마진 & 스토어 쿠폰 할인가 역산 시뮬레이터")
-        st.caption("도매원가와 내가 남기고 싶은 순수익(원), 고객에게 줄 할인쿠폰 금액을 넣으면 스마트스토어에 등록해야 할 정확한 판매가를 계산해 줍니다.")
-
         sim_c1, sim_c2, sim_c3, sim_c4 = st.columns(4)
         with sim_c1:
             sim_w_cost = st.number_input("1️⃣ 도매 공급원가 (원)", value=14000, step=500)
@@ -763,7 +885,6 @@ try:
         with sim_c4:
             sim_target_profit = st.number_input("4️⃣ 개당 꼭 남기고 싶은 목표 순수익 (원)", value=6000, step=500)
 
-        # 역산 공식: 실결제가 = (도매원가 + 배송비보조 + 목표순수익) / (1 - 수수료율)
         fee_ratio = ledger_fee_rate / 100.0
         required_actual_pay = int(round((sim_w_cost + sim_ship_subsidy + sim_target_profit) / (1.0 - fee_ratio), -2))
         recommended_list_price = required_actual_pay + sim_coupon
@@ -1212,7 +1333,7 @@ try:
             components.html(component_html, height=880, scrolling=True)
 
     # ==========================================
-    # TAB 5 (신규): SEO 황금 상품명 변환기 & 블로그·카페 홍보 원고 자동 생성기
+    # TAB 5: SEO 황금 상품명 변환기 & 블로그·카페 홍보 원고 자동 생성기
     # ==========================================
     with tab_seo:
         st.subheader("🚀 스마트스토어 SEO 황금 상품명 변환기 & 블로그·카페 홍보 원고 생성기")
@@ -1246,7 +1367,6 @@ try:
                 ["① 블로그 내돈내산·실사용 추천 후기톤", "② 블로그 정보성 꼼꼼 비교·분석톤", "③ 네이버 카페 회원 전용 공동구매·특가 공지톤"],
             )
 
-        # 특수문자/홍보성 금지어 자동 정제 및 중복 단어 제거
         cleaned_base = re.sub(r"\[.*?\]|\(.*?\)|★|☆|♥|♡|/|_|!|\+|~|-", " ", raw_wholesale_title)
         banned_promo_words = ["당일발송", "무료배송", "특가", "할인", "세일", "최저가", "인기", "추천", "주문폭주", "정품"]
         for bw in banned_promo_words:
@@ -1276,7 +1396,6 @@ try:
             f"{clean_core_name} {m1_k} {s1_k} {s2_k} {sp1_k}".strip(),
             f"{m1_k} {m2_k} {sp1_k} {clean_core_name} {s1_k}".strip(),
         ]
-        # 중복 단어 재정리 및 50자 이내 맞춤
         final_seo_list = []
         for cand in seo_candidates:
             uniq_words = []
@@ -1288,7 +1407,6 @@ try:
 
         seo_names_block = "\n".join([f"{i+1}. {name}" for i, name in enumerate(final_seo_list)])
 
-        # 해시태그 15개 자동 생성
         all_tag_seeds = base_tokens + main_kws + sub_kws + spec_kws + ["스마트스토어추천", "가성비템", "내돈내산추천"]
         hashtags = []
         for tg in all_tag_seeds:
@@ -1297,7 +1415,6 @@ try:
                 hashtags.append(f"#{clean_tg}")
         hashtag_str = " ".join(hashtags[:15])
 
-        # 원고 본문 생성
         if "①" in post_tone:
             blog_draft = (
                 f"[추천 타이틀] {m1_k} 고민 끝! {clean_core_name} 실사용 솔직 정리 ✨\n\n"
@@ -1347,7 +1464,7 @@ try:
             render_copy_box("📝 블로그·카페 맞춤형 포스팅 원고 & 해시태그 15개", blog_draft, "blog_draft", "#03c75a", 390)
 
     # ==========================================
-    # TAB 6 (신규): 위탁판매 고객 CS 1초 복사함
+    # TAB 6: 위탁판매 고객 CS 1초 복사함
     # ==========================================
     with tab_cs:
         st.subheader("💬 위탁판매 상황별 고객 CS(톡톡/문자) 답변 1초 복사함")
@@ -1408,10 +1525,14 @@ try:
     with tab_raw:
         st.subheader("📊 구글 시트 원본 데이터 & 시트 열기")
         st.markdown(
-            f"👉 **[여기를 클릭해 내 구글 시트(상품관리 및 수익장부) 바로 열기]({DEFAULT_SHEET_URL}/edit)**"
+            f"👉 **[여기를 클릭해 내 구글 시트(상품관리 및 월별 수익장부) 바로 열기]({DEFAULT_SHEET_URL}/edit)**"
         )
+        st.markdown("##### 1️⃣ `상품관리_및_장부` 탭 데이터")
         display_raw = [c for c in df.columns if not c.endswith("_num") and c != "상품선택"]
         st.dataframe(df[display_raw], use_container_width=True)
+
+        st.markdown("##### 2️⃣ `월별_수익지출_요약` 탭 데이터")
+        st.dataframe(df_monthly_raw, use_container_width=True)
 
 except Exception as e:
     st.error(f"앱 실행 중 오류가 발생했습니다. 상세 에러: {e}")
