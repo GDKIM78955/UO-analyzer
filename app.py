@@ -14,12 +14,13 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 st.set_page_config(page_title="스마트스토어 위탁판매 올인원 ERP", layout="wide", initial_sidebar_state="expanded")
 
-# 한국 시간(KST) 기준 오늘 날짜 계산
+# 한국 시간(KST) 기준 오늘 날짜 및 현재 시각 계산
 KST = timezone(timedelta(hours=9))
-today = datetime.now(KST).date()
+now_kst = datetime.now(KST)
+today = now_kst.date()
 
 # ==========================================
-# 1. 핵심 데이터베이스 (시즌 기념일 / 지재권 금지어 / 블로그 저품질 금칙어 / KC인증 / 도서산간)
+# 1. 핵심 데이터베이스 (시즌 기념일 / 지재권 금지어 / 블로그 금칙어 / KC인증 / 도서산간 / 클레임방어 문구)
 # ==========================================
 SEASONAL_EVENTS = [
     {"month": 1, "day": 1, "name": "신정 / 새해 다짐 시즌", "items": "다이어리, 플래너, 홈트레이닝 용품, 독서대, 영양제 케이스", "keywords": "새해선물, 갓생템, 다이어리꾸미기, 홈트기구"},
@@ -102,6 +103,34 @@ KC_CERT_RULES = [
         "risk_level": "🟢 안전 소싱군 (초보 위탁판매자 강력 추천 카테고리)",
     },
 ]
+
+# [7번 신규 기능용] 상품군별 억지 반품·무상 클레임 방어용 필수 고지 데이터베이스
+CLAIM_DEFENSE_DB = {
+    "⛺ 우드·캠핑·인테리어 가구류": {
+        "title": "원목 및 캠핑·조립 가구 특성 안내 (불량 비해당 사유)",
+        "r1": "천연 원목 소재 특성상 나무의 결, 옹이 자국, 미세한 색상 차이 및 메꿈 자국은 자연스러운 현상으로 불량이 아닙니다.",
+        "r2": "금속/알루미늄 프레임 제조 및 유통 과정 특성상 사용에 지장이 없는 미세한 생활 스크래치나 도장 뭉침이 있을 수 있습니다.",
+        "r3": "야외에서 1회라도 사용하셨거나 조립 흔적(나사 체결 자국)이 남은 경우 단순변심 반품 및 무상 교환이 불가합니다.",
+    },
+    "⚡ 소형가전·충전식·전자기기류": {
+        "title": "충전식 전자기기 사용 및 교환·반품 필독 안내",
+        "r1": "수령 직후에는 배터리 잔량이 부족할 수 있으니 반드시 동봉된 케이블과 정격 어댑터(5V 1~2A 권장, 고속충전기 지양)로 완충 후 작동해 주세요.",
+        "r2": "개봉 후 정품 박스 훼손, 보호 필름 제거, 사용 흔적이 있는 경우 전자상거래법에 의거 단순변심 반품이 제한됩니다.",
+        "r3": "초기 불량 의심 시 폐기하지 마시고 [작동 영상 또는 사진]을 네이버 톡톡으로 보내주시면 확인 즉시 100% 무상 교환해 드립니다.",
+    },
+    "👗 의류·패브릭·침구·잡화류": {
+        "title": "패브릭·의류·잡화 사이즈 및 세탁 주의사항 안내",
+        "r1": "측정 방법과 위치에 따라 1~3cm 내외의 사이즈 오차가 발생할 수 있으며, 모니터/스마트폰 해상도에 따라 실제 색상과 차이가 있을 수 있습니다.",
+        "r2": "대량 생산 공정상 실밥 마감, 초크 자국, 포장 시 발생한 구김은 불량 사유에 해당하지 않습니다.",
+        "r3": "상품 택(Tag) 제거, 세탁 후, 향수·화장품·오염이 묻은 경우에는 어떠한 사유로도 교환 및 환불이 절대 불가합니다.",
+    },
+    "🍽️ 주방·식기·생활리빙 용품": {
+        "title": "도자기·유리·스테인리스 주방용품 공정 특성 안내",
+        "r1": "도자기/유리 제조 공정상 발생하는 미세한 기포, 돌기, 유약 흐름 자국, 검은 점(철분)은 정상 범주이며 불량이 아닙니다.",
+        "r2": "스테인리스 제품은 첫 사용 전 식용유와 베이킹소다(연마제 제거 작업)로 세척 후 사용해 주시기 바랍니다.",
+        "r3": "세척 완료 또는 음식물을 담았던 제품은 위생상 재판매가 불가하므로 단순변심 반품이 불가합니다.",
+    },
+}
 
 ISLAND_KEYWORDS = ["제주", "서귀포", "울릉", "백령", "연평", "대청", "덕적", "자월", "영흥", "완도", "진도", "신안", "흑산", "비금", "도초", "임자", "자은", "암태", "안좌", "팔금", "추자", "우도", "거문", "욕지", "사량", "조도", "선유", "어청", "위도"]
 
@@ -464,17 +493,17 @@ try:
 
     with st.sidebar:
         st.markdown("## 🛒 위탁판매 컨트롤 타워")
-        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 40대 기능 탑재)")
+        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 45대 기능 탑재)")
         st.markdown("---")
 
         main_menu = st.radio(
             "📂 작업할 워크스페이스를 선택하세요",
             [
-                "📅 1. 일일루틴·시즌·KC·사입전환",
+                "📅 1. 루틴·시즌·KC·사입·소싱판독",
                 "🚨 2. 품절·특가찬스·성적표·좀비진단",
-                "📦 3. 발주·송장·반품·CS·댓글유도",
-                "🎨 4. 마케팅·사진세탁·연휴배너·목차",
-                "💰 5. 장부·등급·추가상품·자금·세금",
+                "📦 3. 발주·마감플래너·반품·리뷰카드",
+                "🎨 4. 마케팅·사진세탁·클레임방어배너",
+                "💰 5. 장부·등급·유입수수료·자금·세금",
             ],
         )
 
@@ -490,7 +519,7 @@ try:
             st.cache_data.clear()
             st.rerun()
 
-    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (40대 기능 마스터 버전)")
+    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (45대 기능 최종 마스터판)")
     golden_events = [e for e in upcoming_list if e["d_day"] <= 38]
     if golden_events:
         ge = golden_events[0]
@@ -500,28 +529,29 @@ try:
         )
 
     # ==================================================================================
-    # MENU 1: 📅 일일루틴·시즌·KC·사입전환
+    # MENU 1: 📅 루틴·시즌·KC·사입·소싱판독 (+[5번 신규] 소싱 전 5초 GO/STOP 판독 스코어보드)
     # ==================================================================================
-    if main_menu == "📅 1. 일일루틴·시즌·KC·사입전환":
-        sub_s0, sub_s1, sub_s2, sub_s3 = st.tabs([
-            "✅ 1. 하루 15분 사장님 일일 루틴 체크리스트",
-            "📅 2. 연간 기념일 소싱 로드맵 & 월별 달력",
-            "🛡️ 3. KC인증·전파인증·식약처 필수 판독기",
-            "📦 4. 위탁 ➡️ 소량 사입 전환 손익분기(ROI) 판독기",
+    if main_menu == "📅 1. 루틴·시즌·KC·사입·소싱판독":
+        sub_s0, sub_s1, sub_s2, sub_s3, sub_s4 = st.tabs([
+            "✅ 1. 하루 15분 사장님 일일 루틴",
+            "📅 2. 연간 기념일 소싱 달력",
+            "🎯 3. 신규 소싱 5초 판독(GO/STOP) 스코어보드",
+            "🛡️ 4. KC인증·전파·식약처 판독기",
+            "📦 5. 위탁 ➡️ 소량 사입 전환 판독기",
         ])
 
         with sub_s0:
             st.subheader("✅ 하루 15분! 스마트스토어 & 블로그 위탁판매 일일 마감 루틴")
             rc1, rc2 = st.columns(2, gap="large")
             with rc1:
-                st.markdown("#### ☀️ 오전 루틴 (출근 직후 5분 — 품절 방어 & 발주)")
+                st.markdown("#### ☀️ 오전 루틴 (출근 직후 5분 — 품절 방어 & 마감 시간별 발주)")
                 chk1 = st.checkbox("1️⃣ [2번 메뉴] 전체 상품 도매처 품절·가격인상·특가찬스 스캔 돌리기", value=False)
-                chk2 = st.checkbox("2️⃣ [3번 메뉴] 스마트스토어 신규 주문 엑셀 다운로드 ➡️ 도매처 발주 변환 (도서산간·진상고객 확인)", value=False)
+                chk2 = st.checkbox("2️⃣ [3번 메뉴] 도매처 마감 골든타임 확인 후 신규 주문 발주 변환 (도서산간·진상고객 체크)", value=False)
                 chk3 = st.checkbox("3️⃣ [2번 메뉴] 품절 발생 시 스토어 '판매중지' 처리 & 블로그 죽은 링크 교체", value=False)
 
             with rc2:
-                st.markdown("#### 🌙 오후/저녁 루틴 (퇴근 전 10분 — 송장·마케팅·장부)")
-                chk4 = st.checkbox("4️⃣ [3번 메뉴] 도매처 출고 송장번호 다운로드 ➡️ 스마트스토어 일괄 발송 처리", value=False)
+                st.markdown("#### 🌙 오후/저녁 루틴 (퇴근 전 10분 — 송장·리뷰카드·마케팅)")
+                chk4 = st.checkbox("4️⃣ [3번 메뉴] 도매처 출고 송장 일괄 발송 처리 & 톡톡 포토리뷰 안내 카드 전송", value=False)
                 chk5 = st.checkbox("5️⃣ [4번 메뉴] 사진 세탁 + 매거진 목차 + 인포그래픽으로 블로그/카페 1포스팅 업로드", value=False)
                 chk6 = st.checkbox("6️⃣ [3·5번 메뉴] 블로그/카페 문의 댓글·쪽지 답변 & 구글 시트 판매수량 업데이트", value=False)
 
@@ -624,7 +654,94 @@ try:
                 } for ev in upcoming_list]
                 st.dataframe(pd.DataFrame(schedule_rows), use_container_width=True, hide_index=True, height=560)
 
+        # ------------------------------------------
+        # [5번 신규 기능] 신규 소싱 전 '시장성/수익성 5초 판독' GO / STOP 스코어보드
+        # ------------------------------------------
         with sub_s2:
+            st.subheader("🎯 신규 소싱 전 '시장성·수익성 5초 판독' GO / STOP 스코어보드")
+            st.write(
+                "도매처에서 눈에 띄는 상품을 발견했을 때, 시간 들여 상세페이지와 블로그 글을 작성할 가치가 있는지 "
+                "**5대 핵심 기준(100점 만점)**으로 5초 만에 판독합니다."
+            )
+
+            gs_c1, gs_c2 = st.columns([1.1, 1.2], gap="large")
+            with gs_c1:
+                gs_name = st.text_input("판독할 후보 상품명", value="겨울 캠핑용 접이식 불멍 화로대")
+                gs_margin = st.slider("1️⃣ 예상 개당 순마진액 (수수료 제외 순수익, 원)", 500, 20000, 6500, step=500)
+                gs_blog_fit = st.selectbox(
+                    "2️⃣ 블로그·카페 내돈내산/정보성 홍보 적합도",
+                    [
+                        "상 (고민 해결형·비교 포인트 명확·선물/시즌 수요 높음) - 25점",
+                        "중 (무난한 생필품·후기 작성 가능) - 15점",
+                        "하 (단순 소모품·특징이 없어 글 쓰기 막막함) - 5점",
+                    ],
+                )
+                gs_comp = st.selectbox(
+                    "3️⃣ 네이버 쇼핑 상위페이지 경쟁 강도",
+                    [
+                        "블루오션 (상위권에 리뷰 50개 미만 스토어가 3개 이상 보임) - 20점",
+                        "보통 (리뷰 100~300개 수준, 블로그 직접 유입으로 승부 가능) - 12점",
+                        "레드오션 (상위 10개 모두 리뷰 2,000개 이상 브랜드 독점) - 3점",
+                    ],
+                )
+                gs_claim = st.selectbox(
+                    "4️⃣ 파손·사이즈 반품·KC인증 리스크",
+                    [
+                        "안전 (파손 위험 낮고 인증 비대상/단순 잡화) - 15점",
+                        "보통 (인증 번호 확인 완료 또는 경미한 사이즈 옵션 존재) - 10점",
+                        "위험 (유리/액체 파손 위험 높음, 사이즈 반품 다발 의류/신발) - 2점",
+                    ],
+                )
+                gs_upsell = st.selectbox(
+                    "5️⃣ 1+1 묶음 판매 또는 추가상품 구성 가능 여부",
+                    [
+                        "가능 (2개 세트 구매나 전용 케이스/소모품 묶음 판매 최적) - 15점",
+                        "단품 위주 (보통 1인당 1개만 구매하는 품목) - 8점",
+                    ],
+                )
+
+            score_m = 25 if gs_margin >= 6000 else (18 if gs_margin >= 4000 else (10 if gs_margin >= 2500 else 3))
+            score_b = 25 if "25점" in gs_blog_fit else (15 if "15점" in gs_blog_fit else 5)
+            score_c = 20 if "20점" in gs_comp else (12 if "12점" in gs_comp else 3)
+            score_r = 15 if "15점" in gs_claim else (10 if "10점" in gs_claim else 2)
+            score_u = 15 if "15점" in gs_upsell else 8
+            total_gs_score = score_m + score_b + score_c + score_r + score_u
+
+            with gs_c2:
+                st.markdown(f"#### 📊 [{gs_name}] 소싱 적합도 종합 판정")
+                st.progress(total_gs_score / 100.0, text=f"종합 점수: {total_gs_score}점 / 100점")
+
+                if total_gs_score >= 78:
+                    st.success(
+                        f"🟢 **[즉시 소싱 GO! — {total_gs_score}점 / S급 황금 아이템]**\n\n"
+                        "- 수익성, 블로그 홍보 궁합, 경쟁 강도 모두 훌륭합니다!\n"
+                        "- **추천 액션:** 지금 바로 도매처 사진을 세탁해 등록하고, 블로그 비교형 인포그래픽 + 카페 공구글을 동시에 발행하세요."
+                    )
+                elif total_gs_score >= 55:
+                    st.warning(
+                        f"🟡 **[조건부 테스트 소싱 — {total_gs_score}점 / A~B급 아이템]**\n\n"
+                        "- 유료 광고를 돌리기보다는 **블로그/카페 무료 유입 전용**으로 가볍게 등록해 반응을 테스트해 보세요.\n"
+                        "- **보완 팁:** 개당 마진이 낮다면 5번 메뉴의 '1+1 세트 설계기'로 2개 묶음 옵션을 기본으로 세팅하세요."
+                    )
+                else:
+                    st.error(
+                        f"🔴 **[소싱 패스 권장 (STOP!) — {total_gs_score}점 / 시간 낭비 위험]**\n\n"
+                        "- 마진이 너무 적거나 반품/경쟁 리스크가 커서 품을 들여도 순수익이 남기 어렵습니다.\n"
+                        "- 과감히 패스하시고 시즌 캘린더의 다른 틈새 상품을 찾아보세요!"
+                    )
+
+                st.dataframe(
+                    pd.DataFrame([
+                        {"평가 항목": "1. 개당 순마진 점수 (25점 만점)", "획득 점수": f"{score_m}점"},
+                        {"평가 항목": "2. 블로그/카페 홍보 적합도 (25점 만점)", "획득 점수": f"{score_b}점"},
+                        {"평가 항목": "3. 네이버 쇼핑 경쟁 우위 (20점 만점)", "획득 점수": f"{score_c}점"},
+                        {"평가 항목": "4. 반품/인증 안전성 (15점 만점)", "획득 점수": f"{score_r}점"},
+                        {"평가 항목": "5. 세트/추가상품 확장성 (15점 만점)", "획득 점수": f"{score_u}점"},
+                    ]),
+                    use_container_width=True, hide_index=True
+                )
+
+        with sub_s3:
             st.subheader("🛡️ 소싱 전 필수! KC인증·전파인증·식약처 대상 품목 자동 판독기")
             kc_input = st.text_input(
                 "🔍 소싱하려는 상품명 또는 품목 키워드를 입력하세요",
@@ -656,7 +773,7 @@ try:
                 use_container_width=True, hide_index=True
             )
 
-        with sub_s3:
+        with sub_s4:
             st.subheader("📦 위탁판매 효자 상품 ➡️ '소량 사입(도매꾹·1688)' 전환 시점 손익분기(ROI) 판독기")
             roi_c1, roi_c2, roi_c3 = st.columns(3)
             with roi_c1:
@@ -877,17 +994,19 @@ try:
             st.dataframe(pd.DataFrame(zombie_rows), use_container_width=True, hide_index=True)
 
     # ==================================================================================
-    # MENU 3: 📦 발주·송장·반품·CS·댓글유도 (발주 + 송장 + 반품정산 + 블랙컨슈머 + CS + 리뷰답글 + [신규]블로그/카페 댓글·쪽지 유도기)
+    # MENU 3: 📦 발주·마감플래너·반품·리뷰카드 (+[9번] 마감 골든타임 플래너 + [10번] 톡톡 감사&포토리뷰 안내 카드 PNG)
     # ==================================================================================
-    elif main_menu == "📦 3. 발주·송장·반품·CS·댓글유도":
-        sub_o1, sub_o2, sub_o_ret, sub_o3, sub_o4, sub_o5, sub_o6 = st.tabs([
-            "📦 1. 주문서 ➡️ 발주 변환",
-            "🚚 2. 송장 ➡️ 일괄 발송 변환",
-            "🔄 3. 반품·교환 택배비 정산기",
-            "🛡️ 4. 진상 고객 요주의 DB",
-            "💬 5. 스토어 CS 1초 복사함",
-            "⭐ 6. 스토어 리뷰 답글 생성기",
-            "💌 7. 블로그·카페 문의 댓글·쪽지 구매유도기",
+    elif main_menu == "📦 3. 발주·마감플래너·반품·리뷰카드":
+        sub_o1, sub_o_plan, sub_o2, sub_o_ret, sub_o3, sub_o4, sub_o5, sub_o_card, sub_o6 = st.tabs([
+            "📦 1. 주문 ➡️ 발주 변환",
+            "⏰ 2. 도매처 발주 마감 플래너",
+            "🚚 3. 송장 ➡️ 일괄 발송 변환",
+            "🔄 4. 반품 택배비 정산기",
+            "🛡️ 5. 진상 고객 DB",
+            "💬 6. CS 답변 1초 복사",
+            "⭐ 7. 리뷰 답글 생성기",
+            "🎁 8. 톡톡 감사·리뷰이벤트 카드(PNG)",
+            "💌 9. 블로그·카페 댓글·쪽지 유도기",
         ])
 
         if "blacklist_keywords" not in st.session_state:
@@ -999,6 +1118,39 @@ try:
                 with dl_c2:
                     owner_csv = df_conv[["상품주문번호", "주문상품명", "옵션명", "발주수량", "받는사람(수취인)", "휴대폰번호", "우편번호", "배송지주소", "배송메모"]].to_csv(index=False).encode("utf-8-sig")
                     st.download_button("📥 [오너클랜/일반도매 규격] 발주서 CSV 다운로드", data=owner_csv, file_name=f"오너클랜_발주서_{today.strftime('%Y%m%d')}.csv", mime="text/csv", use_container_width=True)
+
+        # ------------------------------------------
+        # [9번 신규 기능] 요일·시간대별 도매처 발주 마감 골든타임 플래너
+        # ------------------------------------------
+        with sub_o_plan:
+            st.subheader("⏰ 요일·시간대별 도매처 발주 마감 골든타임 플래너")
+            weekday_names = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
+            curr_wday = weekday_names[today.weekday()]
+            curr_hour = now_kst.hour
+
+            st.write(
+                f"현재 시각은 **{curr_wday} {now_kst.strftime('%H시 %M분')}**입니다. "
+                "도매처마다 당일 출고 마감 시간이 다르므로, 마감 시간이 빠른 공급사부터 순서대로 발주를 넣어야 발송지연 페널티를 막을 수 있습니다."
+            )
+
+            if today.weekday() == 0:
+                st.error(
+                    "🚨 **[월요일 오전 비상 경보!]** 금요일 저녁~일요일 주말 동안 쌓인 전국 위탁판매자들의 주문이 한꺼번에 몰려 **품절과 출고 지연이 가장 많이 발생하는 요일**입니다! "
+                    "평소보다 1시간 일찍(오전 10시 전) 발주를 마감하세요!"
+                )
+            elif today.weekday() == 4:
+                st.warning(
+                    "⚡ **[금요일 오후 발주 주의!]** 오늘 오후 마감 시간을 놓치면 주말 내내 배송이 멈추고 월요일에 출고되어 고객 취소율이 급증합니다. 오후 1시 전까지 모든 발주를 끝내세요!"
+                )
+            elif today.weekday() in (5, 6):
+                st.info("☕ **[주말 운영 가이드]** 토/일요일은 도매처 휴무입니다. 주말 신규 주문 건은 월요일 오전 9시 정각에 1순위로 발주 넣을 수 있도록 엑셀만 미리 변환해 두세요.")
+
+            cutoff_schedule = [
+                {"우선순위": "1순위 (오전 마감)", "도매처 / 공급사 유형": "오너클랜 일부 빠른마감 공급사 / 식품·냉동 도매처", "권장 발주 마감": "오전 10:30 이전", "송장 나오는 시간": "오후 3:00 ~ 5:00", "현재 상태": "🟢 발주 가능" if curr_hour < 10 else "🔴 당일출고 마감 임박/종료"},
+                {"우선순위": "2순위 (정오 마감)", "도매처 / 공급사 유형": "도매매(도매꾹) 주요 인기 공급사 / 대형 생활용품 총판", "권장 발주 마감": "오후 12:30 이전", "송장 나오는 시간": "오후 4:00 ~ 6:00", "현재 상태": "🟢 발주 가능" if curr_hour < 12 else "🟠 마감 주의 (즉시 발주 요망)"},
+                {"우선순위": "3순위 (오후 마감)", "도매처 / 공급사 유형": "오너클랜 일반 공급사 / 자체 물류센터 보유 도매처", "권장 발주 마감": "오후 14:00 이전", "송장 나오는 시간": "오후 5:00 ~ 7:00", "현재 상태": "🟢 여유 있음" if curr_hour < 14 else "🔴 내일 출고로 이월 가능성 높음"},
+            ]
+            st.dataframe(pd.DataFrame(cutoff_schedule), use_container_width=True, hide_index=True)
 
         with sub_o2:
             st.subheader("🚚 도매처 출고 송장번호 ➡️ 스마트스토어 일괄 발송처리 엑셀(CSV) 변환기")
@@ -1114,15 +1266,67 @@ try:
                 render_copy_box("🙇‍♂️ 3. [별점 1~2점 불만/불량 리뷰용] 다른 예비 구매자를 안심시키는 사과 답글", reply_1star, "rv1", "#dc2626", 195)
 
         # ------------------------------------------
-        # 신규 기능: 블로그·카페 '질문형 댓글/쪽지(가격·구매처 문의)' 1초 답변 & 구매 유도기
+        # [10번 신규 기능] 톡톡 전송용 '첫 구매 감사 & 포토리뷰 이벤트 안내 카드(PNG)' 생성기
         # ------------------------------------------
-        with sub_o6:
-            st.subheader("💌 블로그·카페 '가격/구매처 문의 댓글·쪽지' 1초 답변 & 구매 전환 유도기")
+        with sub_o_card:
+            st.subheader("🎁 네이버 톡톡/문자 전송용 '구매 감사 & 포토리뷰 포인트 혜택 안내장(PNG)' 생성기")
             st.write(
-                "블로그나 카페 홍보글에 **'구매처 정보 좀 주세요', '얼마인가요?'** 댓글이 달렸을 때, "
-                "스팸 필터에 걸리지 않으면서 **즉시 결제로 이어지게 만드는 고전환 대댓글 & 쪽지 템플릿**입니다."
+                "배송 완료 후 글자로만 톡톡을 보내는 것보다, **예쁜 '포토리뷰 적립금 혜택 카드 이미지(PNG)'를 첨부해 보내면 구매확정과 포토리뷰 작성률이 2배 이상 상승**합니다!"
             )
 
+            rc_edit, rc_prev = st.columns([1.0, 1.3], gap="large")
+            with rc_edit:
+                card_store = st.text_input("스토어명 표기", value="트렌드 픽 공식 스마트스토어")
+                card_text_pt = st.number_input("일반 텍스트 리뷰 적립금 (원)", value=150, step=50)
+                card_photo_pt = st.number_input("포토/동영상 리뷰 적립금 (원)", value=500, step=100)
+                card_best_pt = st.number_input("월간 베스트 리뷰 추가 적립금 (원)", value=3000, step=500)
+                card_coupon_msg = st.text_input("단골 재구매 추가 혜택 문구", value="스토어 [알림받기] 누르시면 재구매 1,000원 할인쿠폰 즉시 발급!")
+
+            with rc_prev:
+                thank_card_html = f"""
+                <!DOCTYPE html><html><head><meta charset="utf-8">
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+                </head><body style="margin:0;font-family:'Malgun Gothic',sans-serif;">
+                    <button onclick="dlThank()" style="width:100%;background:#03c75a;color:#fff;border:none;padding:15px;border-radius:8px;font-size:16px;font-weight:900;cursor:pointer;margin-bottom:12px;">
+                        📸 톡톡/문자 전송용 '포토리뷰 이벤트 안내 카드' PNG 다운로드
+                    </button>
+                    <div id="thankCard" style="max-width:520px;margin:0 auto;background:#ffffff;border:3px solid #03c75a;border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="background:#03c75a;color:#ffffff;padding:20px;text-align:center;">
+                            <div style="font-size:12px;font-weight:800;letter-spacing:1px;opacity:0.9;">THANK YOU FOR YOUR ORDER</div>
+                            <div style="font-size:22px;font-weight:900;margin-top:4px;">🎁 [{card_store}] 리뷰 이벤트</div>
+                            <div style="font-size:13.5px;margin-top:6px;">상품은 잘 받아보셨나요? 구매확정 후 리뷰를 남겨주시면 네이버페이 포인트를 즉시 드립니다!</div>
+                        </div>
+                        <div style="padding:22px;background:#f8fafc;">
+                            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+                                <span style="font-size:14.5px;font-weight:800;color:#334155;">✍️ 일반 텍스트 리뷰 작성 시</span>
+                                <span style="font-size:18px;font-weight:900;color:#03c75a;">+{card_text_pt:,}원 적립</span>
+                            </div>
+                            <div style="background:#ecfdf5;border:2px solid #03c75a;border-radius:10px;padding:14px 18px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+                                <span style="font-size:15px;font-weight:900;color:#065f46;">📸 포토 / 동영상 리뷰 작성 시</span>
+                                <span style="font-size:20px;font-weight:900;color:#e11d48;">+{card_photo_pt:,}원 즉시적립!</span>
+                            </div>
+                            <div style="background:#1e293b;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;color:#ffffff;">
+                                <span style="font-size:14.5px;font-weight:800;">👑 베스트 리뷰어 선정 시</span>
+                                <span style="font-size:18px;font-weight:900;color:#facc15;">+{card_best_pt:,}원 보너스!</span>
+                            </div>
+                        </div>
+                        <div style="background:#ffffff;padding:14px 20px;border-top:1px solid #e2e8f0;text-align:center;font-size:13.5px;font-weight:800;color:#1e3a8a;">
+                            💡 {card_coupon_msg}
+                        </div>
+                    </div>
+                    <script>
+                    function dlThank() {{
+                        html2canvas(document.getElementById('thankCard'), {{ scale:2, backgroundColor:'#ffffff' }}).then(c => {{
+                            const a = document.createElement('a'); a.download='톡톡_포토리뷰이벤트_안내카드.png'; a.href=c.toDataURL('image/png'); a.click();
+                        }});
+                    }}
+                    </script>
+                </body></html>
+                """
+                components.html(thank_card_html, height=480, scrolling=False)
+
+        with sub_o6:
+            st.subheader("💌 블로그·카페 '가격/구매처 문의 댓글·쪽지' 1초 답변 & 구매 전환 유도기")
             dm_c1, dm_c2, dm_c3 = st.columns(3)
             with dm_c1:
                 dm_prod = st.text_input("문의 들어온 상품명", value="초경량 감성 우드 롤테이블")
@@ -1152,15 +1356,15 @@ try:
             render_copy_box("💌 2. [네이버 카페 쪽지/대댓글용] 카페 강퇴/스팸 방지용 정중한 안내 쪽지", dm_cafe_note, "dm2", "#2563eb", 190)
             render_copy_box("👀 3. [카페 공개 댓글용] 다른 회원들의 호기심까지 자극하는 '쪽지 발송 완료' 공개 답글", dm_public_nudge, "dm3", "#6d28d9", 150)
             # ==================================================================================
-    # MENU 4: 🎨 마케팅·사진세탁·연휴배너·목차
+    # MENU 4: 🎨 마케팅·사진세탁·클레임방어배너
     # ==================================================================================
-    elif main_menu == "🎨 4. 마케팅·사진세탁·연휴배너·목차":
+    elif main_menu == "🎨 4. 마케팅·사진세탁·클레임방어배너":
         sub_mk1, sub_mk_top3, sub_mk_hook, sub_mk2, sub_mk3, sub_mk4, sub_mk5 = st.tabs([
             "🎨 1. 5종 단품 인포그래픽",
             "🏆 2. Top 3 묶음 기획전 카드",
             "⚡ 3. 상세페이지 3초 후킹 브릿지",
-            "🧼 4. 도매처 사진 EXIF 세탁 & 썸네일 합성",
-            "📢 5. 상세 기본공지 & 연휴 배송휴무 배너",
+            "🧼 4. 사진 EXIF 세탁 & 썸네일 합성",
+            "🛡️ 5. 기본·연휴·클레임방어 배너(3종)",
             "🚀 6. 매거진 목차·SEO·태그10·저품질검사",
             "🔗 7. 블로그·카페 UTM 추적링크",
         ])
@@ -1581,16 +1785,8 @@ try:
             with hk2:
                 components.html(hook_html, height=410, scrolling=False)
 
-        # ------------------------------------------
-        # 업그레이드: 썸네일 배지 합성 + [신규] 도매처 원본 이미지 해시·메타데이터(EXIF) 세탁 & 미세 색감/여백 보정기
-        # ------------------------------------------
         with sub_mk2:
             st.subheader("🧼 도매처 원본 사진 '해시·EXIF 세탁(중복 문서 회피)' & 1000x1000 썸네일 합성기")
-            st.write(
-                "도매처 이미지를 그대로 블로그나 스마트스토어에 올리면 네이버 AI가 **'유사(중복) 이미지'**로 인식해 노출 점수를 깎습니다. "
-                "**[🧹 깨끗한 세탁 모드(배지 없음)]**를 선택하면 메타데이터 삭제 + 미세 크롭/밝기/채도 보정을 거쳐 **100% 새로운 원본 파일**로 세탁해 줍니다!"
-            )
-
             th_c1, th_c2 = st.columns([1.05, 1.25], gap="large")
             with th_c1:
                 wash_mode = st.radio(
@@ -1694,17 +1890,17 @@ try:
                 components.html(thumb_html, height=550, scrolling=False)
 
         # ------------------------------------------
-        # 업그레이드: 상세 기본 공지 배너 + [신규] 주말·공휴일·명절 연휴 배송 휴무 긴급 공지 배너 생성기
+        # 업그레이드: 상시공지 + 연휴공지 + [7번 신규 기능] 상품군별 '클레임·억지 반품 방어용' 필수 주의사항 배너 생성기
         # ------------------------------------------
         with sub_mk3:
-            st.subheader("📢 스마트스토어 상세페이지 기본 공지 & 🚨 연휴/명절 배송 휴무 긴급 배너 생성기")
+            st.subheader("🛡️ 상세페이지 기본 공지 · 연휴 휴무 공지 · 상품군별 억지 반품 방어 배너 생성기")
             banner_mode = st.radio(
-                "생성할 상세페이지 공지 배너 종류 선택",
+                "생성할 상세페이지 배너 종류 선택 (3종)",
                 [
                     "① [상시용] 상세페이지 상·하단 기본 배송/교환/CS 정책 안내 배너",
                     "② [연휴·명절·휴가철 긴급용] 택배 마감일 & 순차 출고 재개일 안내 배너",
+                    "③ [억지 반품·무상 클레임 방어용] 상품군별 공정 특성(불량 비해당 사유) 필독 배너",
                 ],
-                horizontal=True,
             )
 
             bn_c1, bn_c2 = st.columns([1.0, 1.3], gap="large")
@@ -1751,7 +1947,8 @@ try:
                     </body></html>
                     """
                     components.html(notice_banner_html, height=420, scrolling=False)
-            else:
+
+            elif "②" in banner_mode:
                 with bn_c1:
                     hol_title = st.text_input("🗓️ 연휴/휴무 명칭", value="징검다리 연휴 및 공휴일 택배 배송 안내")
                     hol_deadline = st.text_input("🛑 연휴 전 정상 출고 마감일시", value="12월 24일(목) 오후 2시 결제 완료 건까지 당일 정상 출고")
@@ -1799,9 +1996,57 @@ try:
                     """
                     components.html(holiday_banner_html, height=430, scrolling=False)
 
-        # ------------------------------------------
-        # 업그레이드: SEO 상품명 + 태그 10개 + 저품질 검사 + [신규] 블로그 체류시간 2배 상승 매거진 목차·3줄 요약 박스 생성기
-        # ------------------------------------------
+            else:
+                # [7번 신규 기능] 상품군별 클레임·억지 무상반품 방어용 주의사항 배너
+                with bn_c1:
+                    sel_claim_cat = st.selectbox("판매 상품 카테고리 선택", list(CLAIM_DEFENSE_DB.keys()))
+                     preset_c = CLAIM_DEFENSE_DB[sel_claim_cat]
+                    c_title = st.text_input("배너 상단 제목", value=preset_c["title"])
+                    c_rule1 = st.text_area("✔️ 사전 고지 사항 1 (소재/공정 특성)", value=preset_c["r1"], height=68)
+                    c_rule2 = st.text_area("✔️ 사전 고지 사항 2 (측정/해상도/미세마감)", value=preset_c["r2"], height=68)
+                    c_rule3 = st.text_area("✔️ 사전 고지 사항 3 (반품 불가/교환 기준)", value=preset_c["r3"], height=68)
+
+                with bn_c2:
+                    claim_banner_html = f"""
+                    <!DOCTYPE html><html><head><meta charset="utf-8">
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+                    <style>
+                        body {{ margin:0; padding:0; font-family:'Malgun Gothic',sans-serif; background:transparent; }}
+                        .dl-bar {{ width:100%; background:#334155; color:#fff; border:none; padding:15px; border-radius:8px; font-size:16px; font-weight:900; cursor:pointer; margin-bottom:12px; }}
+                    </style></head>
+                    <body>
+                        <button class="dl-bar" onclick="dlClaim()">📸 억지 반품·클레임 방어용 '구매 전 필독 배너' PNG 다운로드</button>
+                        <div id="claimBox" style="background:#ffffff; border:3px solid #475569; border-radius:12px; overflow:hidden; max-width:680px; margin:0 auto;">
+                            <div style="background:#334155; color:#ffffff; padding:16px 22px; text-align:center;">
+                                <div style="font-size:12px; color:#facc15; font-weight:900; margin-bottom:4px;">QUALITY & RETURN POLICY CHECKLIST</div>
+                                <div style="font-size:20px; font-weight:900;">🛡️ 구매 전 반드시 확인해 주세요! ({c_title})</div>
+                            </div>
+                            <div style="padding:20px 24px; font-size:14px; color:#1e293b; line-height:1.75; background:#f8fafc;">
+                                <div style="background:#ffffff; padding:12px 16px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:10px;">
+                                    📌 <b>1.</b> {c_rule1}
+                                </div>
+                                <div style="background:#ffffff; padding:12px 16px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:10px;">
+                                    📌 <b>2.</b> {c_rule2}
+                                </div>
+                                <div style="background:#fff1f2; padding:12px 16px; border-radius:8px; border:1px solid #fecdd3; color:#9f1239; font-weight:bold;">
+                                    ⚠️ <b>3.</b> {c_rule3}
+                                </div>
+                            </div>
+                            <div style="background:#f1f5f9; padding:10px 20px; font-size:12px; color:#475569; text-align:center;">
+                                위 내용은 전자상거래법 및 소비자분쟁해결기준에 의거하여 사전 고지된 정상 제품 범주입니다.
+                            </div>
+                        </div>
+                        <script>
+                        function dlClaim() {{
+                            html2canvas(document.getElementById('claimBox'), {{ scale: 2, backgroundColor: '#ffffff' }}).then(canvas => {{
+                                const a = document.createElement('a'); a.download = '상세페이지_클레임방어_필독배너.png'; a.href = canvas.toDataURL('image/png'); a.click();
+                            }});
+                        }}
+                        </script>
+                    </body></html>
+                    """
+                    components.html(claim_banner_html, height=450, scrolling=False)
+
         with sub_mk4:
             st.subheader("🚀 블로그 매거진 목차 박스 · SEO 상품명 · 검색 태그 10개 · 저품질 신호등 검사기")
             seo_sel = st.selectbox("시트 상품 불러오기 (또는 직접 입력)", product_list, key="seo_prod_sel")
@@ -1901,11 +2146,8 @@ try:
                 )
                 render_copy_box("📝 3. 블로그·카페 맞춤형 포스팅 원고 & 해시태그 15개", blog_draft, "blog_draft", "#03c75a", 280)
 
-            # [신규] 블로그 체류시간 2배 상승! 매거진 스타일 '목차(Index) & 3줄 핵심 요약' 표 서식 복사기
             st.markdown("---")
             st.markdown("#### 📑 [블로그 체류시간 2배 상승] 포스팅 상단 삽입용 '매거진 목차 & 3줄 요약 박스' 복사기")
-            st.caption("블로그 글 도입부(맨 위)에 이 요약 표를 복사해 붙여넣으면 방문자 이탈률이 급감하고 네이버 DIA+ 상위노출 점수가 크게 올라갑니다.")
-
             toc_html_box = f"""
             <!DOCTYPE html><html><head><meta charset="utf-8"></head>
             <body style="margin:0;font-family:'Malgun Gothic',sans-serif;">
@@ -1951,21 +2193,21 @@ try:
             d_c1, d_c2, d_c3 = st.columns(3)
             with d_c1:
                 if 800 <= char_no_space <= 2200:
-                    st.success(f"🟢 **공백 제외 글자수: {char_no_space:,}자 (최적!)**\n\n스마트블록 상위노출 권장 분량(800~2,000자)에 딱 맞습니다.")
+                    st.success(f"🟢 **공백 제외 글자수: {char_no_space:,}자 (최적!)**")
                 else:
-                    st.info(f"🟡 **공백 제외 글자수: {char_no_space:,}자**\n\n초안 원고에 내 경험담을 2~3문단 더 보태 **800~1,500자**로 맞추면 노출 확률이 올라갑니다!")
+                    st.info(f"🟡 **공백 제외 글자수: {char_no_space:,}자** (800~1,500자 권장)")
             with d_c2:
                 if 2 <= kw_repeat_cnt <= 8:
-                    st.success(f"🟢 **핵심키워드(`{m1_k}`) 반복: {kw_repeat_cnt}회 (안전)**\n\n적정 반복 횟수(3~7회) 이내로 어뷰징 위험이 없습니다.")
+                    st.success(f"🟢 **핵심키워드(`{m1_k}`) 반복: {kw_repeat_cnt}회 (안전)**")
                 elif kw_repeat_cnt > 8:
-                    st.error(f"🔴 **핵심키워드(`{m1_k}`) 과다 반복: {kw_repeat_cnt}회!**\n\n9회 이상 반복 시 어뷰징으로 검색 누락될 수 있으니 줄여주세요.")
+                    st.error(f"🔴 **핵심키워드(`{m1_k}`) 과다 반복: {kw_repeat_cnt}회!**")
                 else:
-                    st.warning(f"🟡 **핵심키워드(`{m1_k}`) 반복: {kw_repeat_cnt}회**\n\n본문 중간에 자연스럽게 3~5회 들어가도록 추가해 주세요.")
+                    st.warning(f"🟡 **핵심키워드(`{m1_k}`) 반복: {kw_repeat_cnt}회**")
             with d_c3:
                 if detected_spam:
-                    st.error(f"🔴 **블로그 저품질 위험 단어 감지!**\n\n감지된 단어: `{', '.join(detected_spam)}` ➡️ 즉시 삭제하거나 순화하세요!")
+                    st.error(f"🔴 **저품질 위험 단어 감지:** `{', '.join(detected_spam)}`")
                 else:
-                    st.success("🟢 **상업성 스팸 금칙어: 0개 (안전 통과)**\n\n블로그 저품질을 유발하는 위험 상업 문구가 없습니다.")
+                    st.success("🟢 **상업성 스팸 금칙어: 0개 (안전 통과)**")
 
         with sub_mk5:
             st.subheader("🔗 블로그·카페 유입 경로 추적 링크(네이버 애널리틱스 `nt_source` 파라미터) 생성기")
@@ -1986,15 +2228,15 @@ try:
                 st.info("💡 위 추적 URL을 복사해 [인포그래픽 제작] 탭의 구매 링크 칸에 넣으면 어떤 블로그 글에서 결제가 일어났는지 스마트스토어 통계에 기록됩니다!")
 
     # ==================================================================================
-    # MENU 5: 💰 장부·등급·추가상품·자금·세금
+    # MENU 5: 💰 장부·등급·유입수수료·자금·세금 (+[11번 신규] 블로그/카페 직접 유입 vs 쇼핑 검색 수수료 절감액 계산기)
     # ==================================================================================
-    elif main_menu == "💰 5. 장부·등급·추가상품·자금·세금":
+    elif main_menu == "💰 5. 장부·등급·유입수수료·자금·세금":
         sub_f1, sub_f2, sub_f_tier, sub_f3, sub_f4, sub_f5 = st.tabs([
             "💎 1. 실시간 수익장부 & 랭킹",
             "🗓️ 2. 월별 정산 마감 & 그래프",
             "👑 3. 스토어 등급 상승 진단기",
-            "🎁 4. 1+1 세트 · 옵션규정 · 추가상품 업셀링",
-            "🏦 5. 마진 · ROAS · 운전자금 · 세금 계산기",
+            "🎁 4. 1+1 세트 · 옵션규정 · 추가상품",
+            "🏦 5. 유입경로별 수수료절감 · ROAS · 자금 · 세금",
             "📊 6. 구글 시트 원본 보기",
         ])
 
@@ -2196,9 +2438,6 @@ try:
                     else:
                         st.info(f"🎯 **남은 목표:** 건수 **{need_cnt:,}건** / 매출 **{need_rev:,}원** 추가 필요 👉 앞으로 {remain_days}일간 **하루 평균 {daily_need_cnt:.1f}건 ({daily_need_rev:,}원/일)** 판매하면 달성!")
 
-        # ------------------------------------------
-        # 업그레이드: 1+1 세트 마진 + 옵션 추가금 규정 + [신규] 추가상품(사은품/소모품 업셀링) 조합 마진 계산기
-        # ------------------------------------------
         with sub_f3:
             st.subheader("🎁 1+1 세트 마진 설계기 · 옵션 추가금 규정 · ➕ 추가상품(업셀링) 수익 시뮬레이터")
             bd1, bd2, bd3, bd4 = st.columns(4)
@@ -2251,11 +2490,8 @@ try:
                     f"- **최대 옵션 추가금 한도:** **`+{max_opt_diff:,}원`** (옵션 실결제가 최대 **{base_rep_price + max_opt_diff:,}원**까지만 구성 가능!)"
                 )
 
-            # [신규] 추가상품(사은품/전용케이스/소모품 업셀링) 조합 마진 계산기
             st.markdown("---")
             st.markdown("#### ➕ 3. 스마트스토어 '추가상품(소모품·전용케이스 업셀링)' 조합 마진 시뮬레이터")
-            st.caption("옵션 추가금 제한(+50%)에 걸릴 때는 스마트스토어의 **'추가상품'** 기능을 쓰면 가격 제한 없이 객단가를 높일 수 있습니다 (같은 도매처 상품으로 구성해 합배송비 0원!).")
-
             up1, up2, up3, up4 = st.columns(4)
             with up1:
                 addon_w_cost = st.number_input("추가상품 도매원가 (원, 예: 전용파우치/리필)", value=1800, step=200)
@@ -2277,7 +2513,41 @@ try:
             uc3.metric("🚀 추가상품 세팅으로 늘어나는 월 보너스 순수익", f"+{monthly_extra_profit:,}원 / 월", f"연간 +{monthly_extra_profit*12:,}원 추가 수익!")
 
         with sub_f4:
-            st.markdown("#### 🧮 1. 목표 마진 & 스토어 쿠폰 할인가 역산 시뮬레이터")
+            # ------------------------------------------
+            # [11번 신규 기능] 유입 경로별(블로그·카페 직접 유입 vs 네이버 쇼핑 검색) 수수료 절감액 정밀 대조기
+            # ------------------------------------------
+            st.markdown("#### 📉 1. [블로그·카페 직접 유입 vs 네이버 쇼핑 검색] 수수료 절감액 정밀 계산기")
+            st.caption(
+                "네이버 쇼핑 검색을 통해 유입된 결제는 **'네이버쇼핑 매출연동수수료(약 2%)'**가 추가로 부과되지만, "
+                "**내 블로그·카페 인포그래픽 링크를 클릭해 직접 들어온 결제는 매출연동수수료(2%)가 면제(또는 마케팅링크 우대)**되어 순수익이 훨씬 더 남습니다!"
+            )
+
+            fc1, fc2, fc3 = st.columns(3)
+            with fc1:
+                ch_monthly_rev = st.number_input("기준 월 총 매출액 (원)", value=int(total_rev), step=500000)
+            with fc2:
+                blog_direct_share = st.slider("내 블로그·카페 직접 링크 유입 결제 비중 (%)", 0, 100, 65)
+            with fc3:
+                base_pay_fee_pct = st.number_input("기본 네이버페이 주문관리 수수료율 (%, 영세/중소 우대 반영 가능)", value=3.63, step=0.1)
+
+            shopping_link_fee_pct = 2.0  # 네이버쇼핑 매출연동수수료 약 2%
+            direct_rev = int(ch_monthly_rev * (blog_direct_share / 100.0))
+            search_rev = ch_monthly_rev - direct_rev
+
+            # 전부 쇼핑검색으로만 팔렸을 때 수수료 vs 블로그 직접유입 비중만큼 연동수수료를 아꼈을 때 수수료
+            fee_if_all_search = int(round(ch_monthly_rev * ((base_pay_fee_pct + shopping_link_fee_pct) / 100.0)))
+            actual_blended_fee = int(round(
+                direct_rev * (base_pay_fee_pct / 100.0) + search_rev * ((base_pay_fee_pct + shopping_link_fee_pct) / 100.0)
+            ))
+            saved_fee_by_blog = fee_if_all_search - actual_blended_fee
+
+            f_col1, f_col2, f_col3 = st.columns(3)
+            f_col1.metric("🏪 100% 쇼핑 검색 유입 시 총 수수료", f"{fee_if_all_search:,}원", f"수수료율 {base_pay_fee_pct + shopping_link_fee_pct:.2f}% 적용")
+            f_col2.metric(f"📝 블로그·카페 {blog_direct_share}% 유입 시 실제 수수료", f"{actual_blended_fee:,}원", f"-{saved_fee_by_blog:,}원 절감!", delta_color="normal")
+            f_col3.metric("🎉 블로그·카페 운영으로 아낀 수수료 보너스", f"+{saved_fee_by_blog:,}원 / 월", f"1년 누적 +{saved_fee_by_blog*12:,}원 절약!")
+
+            st.markdown("---")
+            st.markdown("#### 🧮 2. 목표 마진 & 스토어 쿠폰 할인가 역산 시뮬레이터")
             sim_c1, sim_c2, sim_c3, sim_c4 = st.columns(4)
             with sim_c1:
                 sim_w_cost = st.number_input("1️⃣ 도매 공급원가 (원)", value=14000, step=500)
@@ -2300,7 +2570,7 @@ try:
             res_c3.warning(f"⚠️ **손익분기점(BEP): {bep_price:,}원** (이 금액 미만 판매 시 적자)")
 
             st.markdown("---")
-            st.markdown("#### 🎯 2. 네이버 쇼핑검색광고 손익분기 ROAS & 최대 클릭당 입찰가(Max CPC) 계산기")
+            st.markdown("#### 🎯 3. 네이버 쇼핑검색광고 손익분기 ROAS & 최대 클릭당 입찰가(Max CPC) 계산기")
             ro1, ro2, ro3 = st.columns(3)
             with ro1:
                 ad_prod_price = st.number_input("광고할 상품 판매가 (원)", value=int(required_actual_pay), step=500)
@@ -2319,7 +2589,7 @@ try:
             rc3.metric("✅ 수익 확보 권장 입찰가", f"{rec_cpc:,}원", "순마진의 35% 이상 보존 입찰가")
 
             st.markdown("---")
-            st.markdown("#### 💳 3. 위탁판매 '선결제 운전자금(돈 묶임 방지)' & 캐시플로우 시뮬레이터")
+            st.markdown("#### 💳 4. 위탁판매 '선결제 운전자금(돈 묶임 방지)' & 캐시플로우 시뮬레이터")
             cf1, cf2, cf3 = st.columns(3)
             with cf1:
                 daily_avg_orders = st.number_input("하루 평균 예상 주문 건수 (건/일)", value=10, step=5, min_value=1)
@@ -2338,7 +2608,7 @@ try:
             cfc3.metric("🛡️ 권장 안전 운전자금 (여유분 +30%)", f"{safety_capital:,}원", "통장 잔고 또는 사업자 카드 한도 권장액")
 
             st.markdown("---")
-            st.markdown("#### 🏦 4. 간이과세자 / 일반과세자 예상 부가세 & 세금 적립금 계산기")
+            st.markdown("#### 🏦 5. 간이과세자 / 일반과세자 예상 부가세 & 세금 적립금 계산기")
             tx1, tx2, tx3 = st.columns(3)
             with tx1:
                 tax_type = st.radio("사업자 과세 유형 선택", ["간이과세자 (소매업 부가가치율 15% 적용)", "일반과세자 (매출세액 10% - 매입세액 10%)"])
