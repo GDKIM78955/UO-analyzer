@@ -113,11 +113,11 @@ if golden_events:
                 )
 
 # ==========================================
-# 2. 새로 생성된 구글 시트 자동 연동 설정
+# 2. 구글 시트 자동 연동 설정
 # ==========================================
-sheet_id = "12g0e-ER14x2cyx2ipEAluZjHU5FAxUNpKIrg6sP1jiI"
+DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/12g0e-ER14x2cyx2ipEAluZjHU5FAxUNpKIrg6sP1jiI"
 gid = "0"
-csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+csv_url = f"{DEFAULT_SHEET_URL}/export?format=csv&gid={gid}"
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -469,7 +469,7 @@ try:
             )
 
     # ==========================================
-    # TAB 3 (신규): 수익·지출 장부 대시보드
+    # TAB 3: 수익·지출 장부 대시보드 (가로형 랭킹 바 적용으로 세로 글씨 문제 완벽 해결)
     # ==========================================
     with tab_ledger:
         st.subheader("💰 스마트스토어 수익·지출 통합 장부 대시보드")
@@ -484,7 +484,6 @@ try:
         with col_extra_exp:
             extra_fixed_cost = st.number_input("🧾 이번 달 추가 고정 지출 (택배박스/프로그램비 등, 원)", value=0, step=5000)
 
-        # 장부 정밀 계산
         ledger_rows = []
         total_rev = 0
         total_wholesale_cost = 0
@@ -519,6 +518,7 @@ try:
                 "도매처": w_name,
                 "판매단가": f"{s_p:,}원",
                 "개당순마진": f"{unit_margin:,}원",
+                "판매수량_num": qty,
                 "판매수량": f"{qty:,}개",
                 "총매출액 (수익)": f"{item_rev:,}원",
                 "도매원가 합계": f"{item_w_cost:,}원",
@@ -526,6 +526,7 @@ try:
                 "광고/기타지출": f"{ad_c:,}원",
                 "최종 순수익": item_net_profit,
                 "순수익(표시)": f"{item_net_profit:,}원",
+                "실마진율_num": item_roi,
                 "실마진율": f"{item_roi:.1f}%",
             })
 
@@ -544,7 +545,7 @@ try:
 
         df_ledger = pd.DataFrame(ledger_rows)
 
-        col_l_table, col_l_chart = st.columns([1.45, 1.0], gap="large")
+        col_l_table, col_l_chart = st.columns([1.35, 1.15], gap="large")
         with col_l_table:
             st.markdown("#### 📋 상품별 수익·지출 상세 명세서")
             display_cols = [
@@ -554,12 +555,120 @@ try:
             st.dataframe(df_ledger[display_cols], use_container_width=True, hide_index=True)
 
         with col_l_chart:
-            st.markdown("#### 📊 상품별 최종 순수익 효자 상품 랭킹")
-            chart_df = df_ledger[["상품명", "최종 순수익"]].set_index("상품명")
-            st.bar_chart(chart_df)
+            st.markdown("#### 🏆 효자 상품 순수익 랭킹 (가로형 한눈에 보기)")
+
+            # 순수익 높은 순으로 정렬하여 가로 막대 카드 형태로 렌더링 (글씨 세로 깨짐 완벽 방지)
+            df_ranked = df_ledger.sort_values(by="최종 순수익", ascending=False).reset_index(drop=True)
+            max_profit = max(df_ranked["최종 순수익"].max(), 1)
+
+            rank_bars_html = ""
+            medals = ["🥇 1위", "🥈 2위", "🥉 3위"]
+
+            for r_idx, r_row in df_ranked.iterrows():
+                rank_label = medals[r_idx] if r_idx < 3 else f"🏅 {r_idx + 1}위"
+                p_val = int(r_row["최종 순수익"])
+                bar_pct = max(0, min(100, int((p_val / max_profit) * 100))) if p_val > 0 else 0
+                bar_color = "#10b981" if r_idx == 0 else ("#3b82f6" if r_idx == 1 else ("#6366f1" if r_idx == 2 else "#64748b"))
+                val_color = "#34d399" if p_val >= 0 else "#f87171"
+
+                rank_bars_html += f"""
+                <div class="rank-card">
+                    <div class="rank-header">
+                        <div class="rank-title">
+                            <span class="rank-badge" style="background-color:{bar_color};">{rank_label}</span>
+                            <span class="prod-name">{r_row['상품명']}</span>
+                        </div>
+                        <div class="rank-profit" style="color:{val_color};">{p_val:,}원 <span class="sub-info">({r_row['판매수량']} / 마진 {r_row['실마진율']})</span></div>
+                    </div>
+                    <div class="progress-bg">
+                        <div class="progress-fill" style="width:{bar_pct}%; background-color:{bar_color};"></div>
+                    </div>
+                </div>
+                """
+
+            ranking_component_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ margin: 0; padding: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background-color: transparent; }}
+                .rank-container {{
+                    background-color: #1e293b;
+                    border: 1px solid #334155;
+                    border-radius: 12px;
+                    padding: 16px;
+                    color: #f8fafc;
+                }}
+                .rank-card {{
+                    margin-bottom: 14px;
+                }}
+                .rank-card:last-child {{
+                    margin-bottom: 0;
+                }}
+                .rank-header {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 6px;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                }}
+                .rank-title {{
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 14px;
+                    font-weight: 800;
+                    color: #ffffff;
+                }}
+                .rank-badge {{
+                    font-size: 11.5px;
+                    padding: 2px 8px;
+                    border-radius: 6px;
+                    color: #ffffff;
+                    font-weight: 900;
+                    white-space: nowrap;
+                }}
+                .prod-name {{
+                    word-break: keep-all;
+                }}
+                .rank-profit {{
+                    font-size: 14.5px;
+                    font-weight: 900;
+                    white-space: nowrap;
+                }}
+                .sub-info {{
+                    font-size: 11.5px;
+                    color: #94a3b8;
+                    font-weight: normal;
+                }}
+                .progress-bg {{
+                    width: 100%;
+                    height: 12px;
+                    background-color: #0f172a;
+                    border-radius: 999px;
+                    overflow: hidden;
+                }}
+                .progress-fill {{
+                    height: 100%;
+                    border-radius: 999px;
+                    transition: width 0.4s ease;
+                }}
+            </style>
+            </head>
+            <body>
+                <div class="rank-container">
+                    {rank_bars_html}
+                </div>
+            </body>
+            </html>
+            """
+            rank_height = max(240, len(df_ranked) * 64 + 35)
+            components.html(ranking_component_html, height=rank_height, scrolling=True)
 
         st.info(
-            "💡 **장부 업데이트 방법:** [5. 구글 시트 원본 & 바로가기] 탭에서 시트를 열어 `누적판매수량`이나 `광고및기타지출` 숫자만 고치면 이 장부가 자동으로 계산됩니다!"
+            "💡 **장부 업데이트 방법:** [5. 구글 시트 원본 & 바로가기] 탭에서 시트를 열어 `누적판매수량`이나 `광고및기타지출` 숫자만 고치면 이 장부와 가로 랭킹이 자동으로 계산됩니다!"
         )
 
     # ==========================================
@@ -640,7 +749,6 @@ try:
 
             st.markdown("#### 📝 선택한 템플릿 전용 상세 문구 편집")
 
-            # 템플릿별 맞춤 입력창
             if "①" in template_type:
                 feat1 = st.text_input("✔️ 핵심 포인트 1", value="초경량 프리미엄 소재로 흔들림 없는 튼튼한 내구성")
                 feat2 = st.text_input("✔️ 핵심 포인트 2", value="전용 수납 파우치 기본 증정으로 언제 어디서나 간편 휴대")
@@ -713,7 +821,6 @@ try:
             else ""
         )
 
-        # 공통 가격 박스
         price_box_html = f"""
         <tr>
             <td colspan="2" style="padding: 14px 24px; background-color: #ffffff;">
@@ -735,7 +842,6 @@ try:
         </tr>
         """
 
-        # 템플릿별 중앙 본문 조립
         if "①" in template_type:
             body_section_html = f"""
             {price_box_html}
@@ -862,7 +968,7 @@ try:
                 </td>
             </tr>
             """
-        else:  # ⑤ 특가배너형
+        else:
             body_section_html = f"""
             <tr>
                 <td colspan="2" style="padding: 16px 24px 8px 24px; background-color: #ffffff;">
@@ -1016,7 +1122,7 @@ try:
     with tab_raw:
         st.subheader("📊 구글 시트 원본 데이터 & 시트 열기")
         st.markdown(
-            f"👉 **[여기를 클릭해 내 구글 시트(상품관리 및 수익장부) 바로 열기](https://docs.google.com/spreadsheets/d/{sheet_id}/edit)**"
+            f"👉 **[여기를 클릭해 내 구글 시트(상품관리 및 수익장부) 바로 열기]({DEFAULT_SHEET_URL}/edit)**"
         )
         display_raw = [c for c in df.columns if not c.endswith("_num") and c != "상품선택"]
         st.dataframe(df[display_raw], use_container_width=True)
