@@ -20,7 +20,7 @@ now_kst = datetime.now(KST)
 today = now_kst.date()
 
 # ==========================================
-# 1. 핵심 데이터베이스 (시즌 기념일 / 지재권 금지어 / 블로그 금칙어 / KC인증 / 도서산간 / 클레임방어 문구)
+# 1. 핵심 데이터베이스 (시즌 기념일 / 지재권 금지어 / 블로그 금칙어 / KC인증 / 도서산간 / 클레임방어 / 상품정보제공고시)
 # ==========================================
 SEASONAL_EVENTS = [
     {"month": 1, "day": 1, "name": "신정 / 새해 다짐 시즌", "items": "다이어리, 플래너, 홈트레이닝 용품, 독서대, 영양제 케이스", "keywords": "새해선물, 갓생템, 다이어리꾸미기, 홈트기구"},
@@ -492,17 +492,17 @@ try:
 
     with st.sidebar:
         st.markdown("## 🛒 위탁판매 컨트롤 타워")
-        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 49대 기능 완성판)")
+        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 55대 기능 최종완성판)")
         st.markdown("---")
 
         main_menu = st.radio(
             "📂 작업할 워크스페이스를 선택하세요",
             [
-                "📅 1. 루틴·소싱·합배송·표기치트시트",
+                "📅 1. 가이드북·루틴·소싱·고시치트시트",
                 "🚨 2. 품절·특가찬스·성적표·좀비진단",
                 "📦 3. 발주·대체발송·반품·리뷰카드",
-                "🎨 4. 마케팅·사진세탁·클레임방어배너",
-                "💰 5. 장부·심리가격·수수료·자금·세금",
+                "🎨 4. 마케팅·사진세탁·발행스케줄러",
+                "💰 5. 장부·개별배송함정·세무체크",
             ],
         )
 
@@ -518,7 +518,7 @@ try:
             st.cache_data.clear()
             st.rerun()
 
-    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (49대 기능 최종 마스터판)")
+    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (55대 기능 마스터 완결판)")
     golden_events = [e for e in upcoming_list if e["d_day"] <= 38]
     if golden_events:
         ge = golden_events[0]
@@ -528,24 +528,70 @@ try:
         )
 
     # ==================================================================================
-    # MENU 1: 📅 루틴·소싱·합배송·표기치트시트 (+[1번] 동일 도매처 합배송 매칭 + [6번] 원산지/제조사 표기 치트시트)
+    # MENU 1: 📅 가이드북·루틴·소싱·고시치트시트 (+[신규] 왕초보 실전 가이드북 & 리셋 매뉴얼 + 로드맵 트래커 + 상품정보제공고시 15대 품목)
     # ==================================================================================
-    if main_menu == "📅 1. 루틴·소싱·합배송·표기치트시트":
-        sub_s0, sub_s1, sub_s2, sub_s3, sub_s4, sub_s5, sub_s6 = st.tabs([
-            "✅ 1. 하루 15분 일일 루틴",
-            "📅 2. 연간 시즌 소싱 달력",
-            "🎯 3. 소싱 GO/STOP 판독기",
-            "🛡️ 4. KC인증·식약처 판독기",
-            "📦 5. 소량 사입 전환 판독기",
-            "🤝 6. 동일 도매처 합배송 꿀조합 매칭",
-            "📋 7. 원산지·제조사 표기 10초 치트시트",
+    if main_menu == "📅 1. 가이드북·루틴·소싱·고시치트시트":
+        sub_guide, sub_s0, sub_s1, sub_s2, sub_s3, sub_s4, sub_s5, sub_s6 = st.tabs([
+            "📖 1. [필독] 실전 가이드북 & 시트 리셋법",
+            "✅ 2. 일일 루틴 & 성장 로드맵 트래커",
+            "📅 3. 연간 시즌 소싱 달력",
+            "🎯 4. 소싱 GO/STOP 판독기",
+            "🛡️ 5. KC인증·식약처 판독기",
+            "📦 6. 소량 사입 전환 판독기",
+            "🤝 7. 동일 도매처 합배송 매칭",
+            "📋 8. 원산지 & 상품정보제공고시 치트시트",
         ])
 
+        # ------------------------------------------
+        # [신규 핵심 기능] 왕초보 실전 가이드북 (예시 리셋법 + 외부 사이트 연결법 + 상품 등록 A to Z 순서)
+        # ------------------------------------------
+        with sub_guide:
+            st.subheader("📖 스마트스토어 위탁판매 & 앱 200% 활용 마스터 가이드북")
+            st.write("처음 시작하실 때 헷갈리지 않도록 **① 예시 상품 리셋 방법**, **② 필수 연결 사이트 6곳 사용법**, **③ 물건 하나를 소싱해 올리는 A to Z 정석 순서**를 정리했습니다.")
+
+            g_col1, g_col2 = st.columns(2, gap="large")
+            with g_col1:
+                with st.container(border=True):
+                    st.markdown("#### 🧹 STEP 1. 지금 적혀 있는 예시 상품(5개) 지우고 내 상품으로 리셋하는 법")
+                    st.markdown(
+                        f"1. **[여기를 클릭해 내 구글 시트 열기]({SHEET_BASE_URL}/edit)**로 이동합니다.\n"
+                        "2. 시트 우측 상단 녹색 **[공유]** 버튼 클릭 ➔ 일반 액세스를 **'링크가 있는 모든 사용자(뷰어)'**로 설정합니다.\n"
+                        "3. 하단 **`상품관리_및_장부`** 탭에서 **1행(녹색 제목 줄: `상품명`, `도매처명`... `예상순수익`)은 절대 지우지 마세요!**\n"
+                        "4. **2행~6행**에 적혀 있는 예시 상품 5줄 중 **A열~J열(`상품명`~`광고및기타지출`) 내용만 지우고** 대표님이 실제 소싱한 첫 상품을 2행부터 한 줄씩 입력합니다.\n"
+                        "   - ⚠️ **주의:** 맨 끝 **K열(`예상순수익`)**에는 자동 계산 수식이 들어 있으니 지우지 마시고 그대로 두세요!\n"
+                        "   - ⚠️ 시트 2행을 아예 빈칸(0개)으로 다 비워두면 앱이 '데이터가 없네?'라고 판단해 안전용 예시를 다시 띄웁니다. **반드시 내 첫 번째 상품 1개 이상을 2행에 적은 뒤** 왼쪽 사이드바의 **[🔄 구글 시트 데이터 새로고침]**을 누르세요!"
+                    )
+
+                with st.container(border=True):
+                    st.markdown("#### 🔗 STEP 2. 함께 열어두고 쓰는 필수 외부 사이트 6곳 바로가기")
+                    st.markdown(
+                        "- 🏪 **[네이버 스마트스토어 센터](https://sell.smartstore.naver.com/)**: 상품 등록, 신규 주문 엑셀 다운로드, 송장 일괄 발송 처리\n"
+                        "- 📦 **[도매매 (도매꾹 1개 단품 위탁전용)](https://domemedb.domeggook.com/)**: 재고 없이 1개씩 고객 주소로 바로 쏴주는 대표 위탁 도매처\n"
+                        "- 📦 **[오너클랜 (위탁 도매 플랫폼)](https://ownerclan.com/)**: 생활용품·캠핑·소형가전 위탁 발주 도매처\n"
+                        "- 🛡️ **[제품안전정보센터 (KC인증 조회)](https://www.safetykorea.kr/)**: 도매처 상세페이지의 KC인증 번호가 유효한지 검색\n"
+                        "- 📻 **[국립전파연구원 (전파인증 조회)](https://www.rra.go.kr/)**: 무선·배터리·USB 제품 적합등록 번호 조회\n"
+                        "- 🌿 **[초록누리 (생활화학제품 신고 조회)](https://ecolife.me.go.kr/)**: 방향제·세정제·제습제 환경부 신고번호 조회"
+                    )
+
+            with g_col2:
+                with st.container(border=True):
+                    st.markdown("#### 🚀 STEP 3. 물건 하나를 골라 스마트스토어 & 블로그에 올리는 8단계 공식 순서")
+                    st.markdown(
+                        "**1단계 [아이템 발굴]:** 본 메뉴 **[3. 연간 시즌 소싱 달력]**에서 현재 `D-25 ~ D-35(3~4주 전 황금 타이밍)`인 시즌 품목을 확인하고 도매매/오너클랜에서 상품을 찾습니다.\n\n"
+                        "**2단계 [안전·마진 판독]:** **[4. 소싱 GO/STOP 판독기]**와 **[5. KC인증 판독기]**에 상품명을 넣어 팔아도 안전한지, 마진이 남는지 5초 만에 검사합니다.\n\n"
+                        "**3단계 [판매가 결정]:** **[💰 5번 메뉴 ➔ 4·5번 탭]**에서 도매원가와 배송비 부과 방식(개별배송 함정 유무)을 넣고 `19,800원` 같은 **심리적 단수 판매가**를 결정합니다.\n\n"
+                        "**4단계 [사진 세탁 & 썸네일 제작]:** 도매처 대표 사진을 다운받아 **[🎨 4번 메뉴 ➔ 4번 탭]**에서 **EXIF 세탁 & 1000x1000 배지 합성 썸네일(PNG)**로 저장합니다.\n\n"
+                        "**5단계 [상세페이지 조립]:** **[🎨 4번 메뉴 ➔ 3·5번 탭]**에서 **'3초 후킹 브릿지 이미지'**와 **'배송/클레임 방어 필독 배너'**를 다운받아 스마트스토어 상세페이지 맨 위/아래에 넣습니다.\n\n"
+                        "**6단계 [상품명·태그·고시 입력]:** **[🎨 4번 메뉴 ➔ 6번 탭]**에서 **SEO 황금 상품명**과 **검색태그 10개**를 복사해 넣고, 본 메뉴 **[8. 상품정보제공고시 치트시트]**를 보고 10초 만에 상품 등록을 완료합니다!\n\n"
+                        "**7단계 [구글 시트 기록]:** 등록 완료된 내 스마트스토어 링크와 도매처 링크를 **구글 시트 2행**에 한 줄 적어 넣습니다.\n\n"
+                        "**8단계 [블로그·카페 홍보 폭발]:** **[🎨 4번 메뉴 ➔ 1·6·7번 탭]**에서 **UTM 추적 링크**가 심어진 **인포그래픽 카드 + 매거진 목차 + 저품질 통과 원고**를 복사해 골든타임 시간대에 블로그와 카페에 업로드합니다!"
+                    )
+
         with sub_s0:
-            st.subheader("✅ 하루 15분! 스마트스토어 & 블로그 위탁판매 일일 마감 루틴")
+            st.subheader("✅ 하루 15분 사장님 일일 루틴 & 🏆 파워 등급 달성 실전 로드맵 트래커")
             rc1, rc2 = st.columns(2, gap="large")
             with rc1:
-                st.markdown("#### ☀️ 오전 루틴 (출근 직후 5분 — 품절 방어 & 마감 시간별 발주)")
+                st.markdown("#### ☀️ 오전 루틴 (출근 직후 5분 — 품절 방어 & 발주)")
                 chk1 = st.checkbox("1️⃣ [2번 메뉴] 전체 상품 도매처 품절·가격인상·특가찬스 스캔 돌리기", value=False)
                 chk2 = st.checkbox("2️⃣ [3번 메뉴] 도매처 마감 골든타임 확인 후 신규 주문 발주 변환 (도서산간·진상고객 체크)", value=False)
                 chk3 = st.checkbox("3️⃣ [2·3번 메뉴] 품절 발생 시 '1:1 대체상품 맞교환 유도' 또는 스토어 품절 & 블로그 링크 교체", value=False)
@@ -558,10 +604,21 @@ try:
 
             done_cnt = sum([chk1, chk2, chk3, chk4, chk5, chk6])
             prog_ratio = done_cnt / 6.0
-            st.markdown("---")
             st.progress(prog_ratio, text=f"🔥 오늘의 위탁판매 대표님 루틴 달성률: {int(prog_ratio * 100)}% ({done_cnt} / 6 완료)")
             if done_cnt == 6:
-                st.success("🎉 오늘 해야 할 핵심 운영·마케팅 루틴을 100% 완료하셨습니다! 편히 쉬셔도 됩니다.")
+                st.success("🎉 오늘 해야 할 핵심 운영·마케팅 루틴을 100% 완료하셨습니다!")
+
+            # [신규 기능] 첫 마수걸이 주문 ~ 파워 등급까지 단계별 실전 로드맵 트래커
+            st.markdown("---")
+            st.markdown("#### 🗺️ [신규 오픈 ➔ 파워 등급] 내 스토어 성장 마일스톤 로드맵")
+            st.caption("현재 어디까지 달성하셨는지 체크해 보세요! 한 단계씩 클리어할 때마다 매출의 자릿수가 바뀝니다.")
+            m_step1 = st.checkbox("🌱 [Stage 1. 기반 세팅] 구글 시트 예시 데이터 리셋 & 내 실제 위탁 상품 5종 등록 완료", value=False)
+            m_step2 = st.checkbox("📝 [Stage 2. 첫 유입 & 마수걸이] 블로그·카페에 인포그래픽 홍보글 10개 발행 & 감격의 '첫 주문' 발주 성공!", value=False)
+            m_step3 = st.checkbox("🌿 [Stage 3. 새싹 등급 & 객단가 상승] 주력 상품 30종 돌파 + 1+1 세트/추가상품 세팅으로 월 순수익 30만 원 달성", value=False)
+            m_step4 = st.checkbox("⚡ [Stage 4. 파워 등급 & 사입 전환] 월 100건 판매 돌파 + 베스트셀러 1종 '소량 사입' 전환으로 월 순수익 150만 원+ 달성", value=False)
+
+            stage_cnt = sum([m_step1, m_step2, m_step3, m_step4])
+            st.progress(stage_cnt / 4.0, text=f"🏆 전체 성장 로드맵 진행도: Stage {stage_cnt} / 4 클리어")
 
         with sub_s1:
             st.subheader("📅 연간 기념일 소싱 로드맵 & 월별 달력")
@@ -784,16 +841,8 @@ try:
             r_col2.warning(f"⚖️ **사입 투자금 & 원금 회수 손익분기점**\n\n- 초기 사입 투자금({bulk_moq}개): **{total_bulk_invest:,}원**\n- 딱 **{bep_units}개**만 팔면 투자 원금 100% 회수!")
             r_col3.success(f"💰 **월 {est_monthly_sales}개 판매 시 추가 수익**\n\n- 위탁 월 순수익: {monthly_drop_total:,}원\n- 사입 월 순수익: **{monthly_bulk_total:,}원** (매월 **+{monthly_gain:,}원** 추가 수익!)")
 
-        # ------------------------------------------
-        # [1번 신규 기능] 동일 도매처 '합배송 묶음 상품' 발굴 & 연쇄 구매(Cross-Selling) 매칭기
-        # ------------------------------------------
         with sub_s5:
             st.subheader("🤝 동일 도매처(출고지) '합배송 꿀조합' 발굴 & 연쇄 구매(Cross-Selling) 마진 계산기")
-            st.write(
-                "서로 다른 도매처 상품을 함께 팔면 택배비가 2번(6,000원) 나가지만, "
-                "**같은 도매처 상품을 '추가상품'이나 '함께 사면 좋은 연관상품'으로 묶어 팔면 합배송으로 택배비 3,000원이 절약되어 순수익이 극대화**됩니다!"
-            )
-
             vendor_groups = {}
             for idx, r in df.iterrows():
                 vn = str(r.get("도매처명", "기타")).strip() or "기타"
@@ -806,9 +855,9 @@ try:
                     w1, s1 = int(p1.get("도매원가_num", 0)), int(p1.get("판매가_num", 0))
                     w2, s2 = int(p2.get("도매원가_num", 0)), int(p2.get("판매가_num", 0))
                     ship_saved = int(p1.get("배송비_num", 3000))
-                    comb_sales = s1 + s2 - 1000  # 1,000원 세트할인 가정
+                    comb_sales = s1 + s2 - 1000
                     comb_fee = int(round(comb_sales * 0.056))
-                    comb_net = comb_sales - (w1 + w2) - comb_fee  # 합배송으로 추가 배송비 0원!
+                    comb_net = comb_sales - (w1 + w2) - comb_fee
                     bundle_match_rows.append({
                         "동일 도매처명": vn,
                         "등록 상품 수": f"{len(items)}종 (합배송 가능!)",
@@ -829,28 +878,35 @@ try:
                     })
 
             st.dataframe(pd.DataFrame(bundle_match_rows), use_container_width=True, hide_index=True)
-            st.info("💡 **실전 활용 팁:** 위 표에서 같은 도매처로 묶인 **상품 A의 상세페이지 상단에 상품 B를 '추가상품'으로 등록**해 두시면, 고객이 두 개를 같이 살 때마다 택배비 3,000원이 고스란히 대표님 추가 마진으로 남습니다!")
 
         # ------------------------------------------
-        # [6번 신규 기능] 스마트스토어 '상품속성·원산지·제조사 표기' 10초 완성 치트시트
+        # 업그레이드: 원산지·제조사 표기 + [신규] 스마트스토어 법정 필수 '상품정보제공고시(15대 품목)' 원클릭 자동완성기
         # ------------------------------------------
         with sub_s6:
-            st.subheader("📋 스마트스토어 상품 등록 시 '제조사·브랜드·원산지·AS 표기' 10초 완성 치트시트")
-            st.write("위탁 상품을 스마트스토어에 등록할 때 매번 헷갈리는 **원산지·제조사·브랜드·품질보증기준 표준 입력값**을 유형별로 즉시 복사해 붙여넣으세요.")
-
+            st.subheader("📋 원산지·제조사 표기 & 법정 필수 '상품정보제공고시' 10초 완성 치트시트")
             ch_c1, ch_c2 = st.columns([1.0, 1.3], gap="large")
             with ch_c1:
                 origin_type = st.radio(
-                    "소싱 상품 유형 선택",
+                    "1️⃣ 소싱 상품 원산지/브랜드 유형 선택",
                     [
-                        "① 국내 도매처(도매꾹/오너클랜)에서 가져온 중국산 OEM 일반 공산품 (가장 흔함)",
-                        "② 국내 도매처에서 가져온 국내 제작(Made in Korea) 상품",
-                        "③ 내 스토어 자체 브랜드(PB/나만의 상호)로 포장·브랜딩하여 파는 상품",
+                        "① 국내 도매처(도매꾹/오너클랜) 중국산 OEM 일반 공산품",
+                        "② 국내 도매처 국내 제작(Made in Korea) 상품",
+                        "③ 내 스토어 자체 브랜드(PB) 포장·브랜딩 상품",
+                    ],
+                )
+                gosi_cat = st.selectbox(
+                    "2️⃣ 스마트스토어 '상품정보제공고시' 품목군 선택",
+                    [
+                        "⛺ 스포츠용품 / 캠핑용품 / 레저잡화",
+                        "🛋️ 가구 / 인테리어 소품 / 수납용품",
+                        "⚡ 소형가전 / 디지털 / 계절가전 (손난로·가습기·청소기)",
+                        "🍽️ 주방용품 / 식기 / 텀블러",
+                        "🏠 생활용품 / 욕실 / 청소 / 기타 잡화",
                     ],
                 )
                 my_store_title = st.text_input("내 스토어 상호명 (협력사 표기용)", value="트렌드픽")
-                my_cs_phone = st.text_input("AS 책임자 및 전화번호 (내 스토어 고객센터 번호)", value="070-0000-0000 (네이버 톡톡 문의 환영)")
-                import_company = st.text_input("도매처/수입사 상호명 (모르면 '상품상세참조' 또는 협력사 표기)", value=f"{my_store_title} 협력사(상품상세참조)")
+                my_cs_phone = st.text_input("AS 책임자 및 전화번호", value="070-0000-0000 (네이버 톡톡 문의 환영)")
+                import_company = st.text_input("도매처/수입사 표기", value=f"{my_store_title} 협력사(상품상세참조)")
 
             if "①" in origin_type:
                 cheat_text = (
@@ -858,30 +914,40 @@ try:
                     f"• 제조사 입력: {my_store_title} 협력사 (또는 상품상세참조)\n"
                     f"• 브랜드 입력: (체크 해제 후 비워두기 권장 — 타사 브랜드 무단 기입 시 상표권 위반!)\n"
                     f"• 모델명 입력: {my_store_title} 기획 모델 (또는 품번 기입)\n"
-                    f"• A/S 책임자와 전화번호: {my_store_title} 고객센터 / {my_cs_phone}\n"
-                    f"• 제조연월 / 유효기간: 상시제조 (최근 6개월 이내 제조 상품 순차 발송)\n"
-                    f"• 품질보증기준: 관련 법 및 소비자분쟁해결기준에 따름"
+                    f"• A/S 책임자와 전화번호: {my_store_title} 고객센터 / {my_cs_phone}"
                 )
             elif "②" in origin_type:
                 cheat_text = (
                     f"• 원산지 선택: 국내산 (상세지역 모를 시 '상세설명에 표시' 체크)\n"
                     f"• 제조사 입력: {import_company}\n"
                     f"• 브랜드 입력: (자체 상표 등록 전이면 비워두기 권장)\n"
-                    f"• A/S 책임자와 전화번호: {my_store_title} 고객센터 / {my_cs_phone}\n"
-                    f"• 품질보증기준: 관련 법 및 소비자분쟁해결기준에 따름"
+                    f"• A/S 책임자와 전화번호: {my_store_title} 고객센터 / {my_cs_phone}"
                 )
             else:
                 cheat_text = (
                     f"• 원산지 선택: 수입산(중국) 또는 국내산 (실제 제조국 기준 정확히 선택)\n"
                     f"• 제조사 입력: {my_store_title} OEM 협력공장\n"
-                    f"• 브랜드 입력: {my_store_title} (※ 특허청 상표권 출원/등록 완료 시 브랜드관 노출 가산점!)\n"
-                    f"• A/S 책임자와 전화번호: {my_store_title} 공식 고객센터 / {my_cs_phone}\n"
-                    f"• 품질보증기준: 공정거래위원회 고시 소비자분쟁해결기준에 의거 보상"
+                    f"• 브랜드 입력: {my_store_title}\n"
+                    f"• A/S 책임자와 전화번호: {my_store_title} 공식 고객센터 / {my_cs_phone}"
                 )
 
+            gosi_template = (
+                f"[{gosi_cat} — 스마트스토어 상품정보제공고시 표준 입력값]\n"
+                f"• 품명 및 모델명: 상품상세참조\n"
+                f"• KC 인증정보 (법령에 의한 인증·허가 등을 받았음을 확인할 수 있는 경우): 상품상세참조 (인증 대상 품목은 상세페이지 내 인증번호 필히 확인)\n"
+                f"• 크기, 중량 / 색상 / 재질: 상품상세참조\n"
+                f"• 제품 구성 (구성품): 본품 (상세페이지 구성품 참조)\n"
+                f"• 동일모델의 출시년월: 상품상세참조 (최근 6개월 이내 상시제조)\n"
+                f"• 제조자(수입자): {import_company}\n"
+                f"• 제조국: 중국OEM (국내산일 경우 대한민국)\n"
+                f"• 상품별 세부 사양 및 취급시 주의사항: 상품상세참조\n"
+                f"• 품질보증기준: 관련 법 및 소비자분쟁해결기준에 따름\n"
+                f"• A/S 책임자와 전화번호: {my_store_title} 고객센터 ({my_cs_phone})"
+            )
+
             with ch_c2:
-                render_copy_box("📋 스마트스토어 상품 주요정보·원산지 표준 입력 세트 (복사 후 스토어 등록창에 사용)", cheat_text, "cheat_origin", "#1e3a8a", 260)
-                st.warning("⚠️ **주의사항:** 도매처에 적힌 남의 브랜드 이름을 '브랜드' 칸에 그대로 적어 넣으면 지재권(상표권) 페널티를 받습니다! 위탁 상품은 브랜드 칸을 비워두시고 제조사에 `OO스토어 협력사`로 적는 것이 가장 안전합니다.")
+                render_copy_box("📋 1. 스마트스토어 상단 [주요정보·원산지·제조사] 표준 세트", cheat_text, "cheat_origin", "#1e3a8a", 195)
+                render_copy_box("📑 2. 스마트스토어 하단 [상품정보제공고시] 품목별 표준 입력값", gosi_template, "cheat_gosi", "#03c75a", 265)
 
     # ==================================================================================
     # MENU 2: 🚨 품절·특가찬스·성적표·좀비진단
@@ -1074,7 +1140,7 @@ try:
             st.dataframe(pd.DataFrame(zombie_rows), use_container_width=True, hide_index=True)
 
     # ==================================================================================
-    # MENU 3: 📦 발주·대체발송·반품·리뷰카드 (+[5번 신규] 품절 시 1:1 대체 상품 맞교환 유도 CS & 마진 비교기)
+    # MENU 3: 📦 발주·대체발송·반품·리뷰카드
     # ==================================================================================
     elif main_menu == "📦 3. 발주·대체발송·반품·리뷰카드":
         sub_o1, sub_o_plan, sub_o2, sub_o_alt, sub_o_ret, sub_o3, sub_o4, sub_o5, sub_o_card, sub_o6 = st.tabs([
@@ -1253,16 +1319,8 @@ try:
                     mime="text/csv", type="primary", use_container_width=True
                 )
 
-        # ------------------------------------------
-        # [5번 신규 기능] 품절 시 고객 이탈 막는 '1:1 대체 상품(유사 스펙) 맞교환 유도' CS & 마진 비교기
-        # ------------------------------------------
         with sub_o_alt:
             st.subheader("🔄 도매처 품절 시 주문 취소 막는 '1:1 대체 상품(윗급/유사모델) 발송 유도' 계산기 & CS 생성기")
-            st.write(
-                "주문이 들어왔는데 도매처가 품절일 때 그냥 판매취소를 누르면 **스토어 페널티(취소율 상승)도 받고 다 잡은 매출도 날아갑니다.** "
-                "다른 도매처의 유사 상품(또는 1~2천 원 더 비싼 상위 모델)을 추가금 없이 보내주겠다고 제안하면 **고객의 70% 이상이 기분 좋게 수락**합니다!"
-            )
-
             alt_c1, alt_c2, alt_c3 = st.columns(3)
             with alt_c1:
                 alt_cust = st.text_input("고객명", value="김민수", key="alt_cust")
@@ -1270,7 +1328,7 @@ try:
                 orig_sell_price = st.number_input("고객 결제 금액 (원)", value=28900, step=500)
             with alt_c2:
                 orig_w_cost = st.number_input("품절된 기존 도매처 원가 (원)", value=16500, step=500)
-                alt_item_name = st.text_input("제안할 대체 상품/옵션명 (타 도매처 또는 타 컬러)", value="프리미엄 비치우드 롤테이블 (월넛 브라운 / 상위호환 모델)")
+                alt_item_name = st.text_input("제안할 대체 상품/옵션명", value="프리미엄 비치우드 롤테이블 (월넛 브라운 / 상위호환 모델)")
                 alt_w_cost = st.number_input("대체 상품 도매처 발주 원가 (원)", value=18500, step=500)
             with alt_c3:
                 est_f = int(round(orig_sell_price * 0.056))
@@ -1279,16 +1337,9 @@ try:
                 diff_cost = alt_w_cost - orig_w_cost
 
                 if alt_profit >= 1000:
-                    st.success(
-                        f"✅ **대체 발송 강력 추천! (취소 페널티 방어 성공)**\n\n"
-                        f"- 기존 마진: {orig_profit:,}원 ➡️ **대체 발송 시 순수익: `{alt_profit:,}원`**\n"
-                        f"- 원가가 {diff_cost:,}원 더 들지만, 스토어 취소 페널티를 막고도 **{alt_profit:,}원 흑자**가 남습니다!"
-                    )
+                    st.success(f"✅ **대체 발송 강력 추천! (취소 페널티 방어)**\n\n- 기존 마진: {orig_profit:,}원 ➡️ **대체 발송 순수익: `{alt_profit:,}원`** (흑자 유지!)")
                 else:
-                    st.warning(
-                        f"⚠️ **대체 발송 시 순수익: `{alt_profit:,}원`**\n\n"
-                        f"- 마진이 거의 없거나 소폭 손해({alt_profit:,}원)지만, 스토어 등급 심사 기간이라 **판매자 귀책 취소 페널티(점수 깎임)를 무조건 피해야 할 때만** 진행하세요."
-                    )
+                    st.warning(f"⚠️ **대체 발송 시 순수익: `{alt_profit:,}원`**\n\n- 등급 심사 기간이라 취소 페널티를 무조건 피해야 할 때만 진행하세요.")
 
             alt_cs_msg = (
                 f"안녕하세요, {alt_cust} 고객님! 주문해주신 [{orig_item_name}] 출고 전 최종 검수 과정에서 마지막 재고에 미세한 마감이 아쉬운 부분이 발견되어 연락드렸습니다.\n\n"
@@ -1463,9 +1514,9 @@ try:
             render_copy_box("💌 2. [네이버 카페 쪽지/대댓글용] 카페 강퇴/스팸 방지용 정중한 안내 쪽지", dm_cafe_note, "dm2", "#2563eb", 190)
             render_copy_box("👀 3. [카페 공개 댓글용] 다른 회원들의 호기심까지 자극하는 '쪽지 발송 완료' 공개 답글", dm_public_nudge, "dm3", "#6d28d9", 150)
             # ==================================================================================
-    # MENU 4: 🎨 마케팅·사진세탁·클레임방어배너
+    # MENU 4: 🎨 마케팅·사진세탁·발행스케줄러 (+[신규] 블로그 타겟별 골든타임 발행 스케줄러)
     # ==================================================================================
-    elif main_menu == "🎨 4. 마케팅·사진세탁·클레임방어배너":
+    elif main_menu == "🎨 4. 마케팅·사진세탁·발행스케줄러":
         sub_mk1, sub_mk_top3, sub_mk_hook, sub_mk2, sub_mk3, sub_mk4, sub_mk5 = st.tabs([
             "🎨 1. 5종 단품 인포그래픽",
             "🏆 2. Top 3 묶음 기획전 카드",
@@ -1473,7 +1524,7 @@ try:
             "🧼 4. 사진 EXIF 세탁 & 썸네일 합성",
             "🛡️ 5. 기본·연휴·클레임방어 배너(3종)",
             "🚀 6. 매거진 목차·SEO·태그10·저품질검사",
-            "🔗 7. 블로그·카페 UTM 추적링크",
+            "🔗 7. UTM 추적링크 & 골든타임 발행 스케줄러",
         ])
 
         with sub_mk1:
@@ -2313,7 +2364,7 @@ try:
                     st.success("🟢 **상업성 스팸 금칙어: 0개 (안전 통과)**")
 
         with sub_mk5:
-            st.subheader("🔗 블로그·카페 유입 경로 추적 링크(네이버 애널리틱스 `nt_source` 파라미터) 생성기")
+            st.subheader("🔗 블로그·카페 UTM 추적링크 생성기 & ⏰ 타겟별 골든타임 발행 스케줄러")
             utm_c1, utm_c2 = st.columns([1.0, 1.3], gap="large")
             with utm_c1:
                 base_store_link = st.text_input("내 스마트스토어 상품 원본 URL", value="https://smartstore.naver.com/mystore/products/10000001")
@@ -2330,15 +2381,45 @@ try:
                 render_copy_box("🎯 생성된 스마트스토어 유입 추적 전용 URL", tracked_url, "utm_box", "#6d28d9", 180)
                 st.info("💡 위 추적 URL을 복사해 [인포그래픽 제작] 탭의 구매 링크 칸에 넣으면 어떤 블로그 글에서 결제가 일어났는지 스마트스토어 통계에 기록됩니다!")
 
+            # [신규 기능] 블로그 포스팅 요일·시간대별 골든타임 발행 스케줄러
+            st.markdown("---")
+            st.markdown("#### ⏰ [구매 전환율 2배 상승] 상품 타겟별 블로그·카페 골든타임 예약 발행 스케줄러")
+            st.caption("같은 홍보글이라도 내 상품을 살 고객들이 스마트폰을 보는 시간에 맞춰 예약 발행해야 초기 클릭률과 결제가 폭발합니다.")
+
+            golden_schedule_df = pd.DataFrame([
+                {
+                    "상품 타겟 카테고리": "⛺ 캠핑·차박·나들이·취미·차량용품",
+                    "최고 효율 요일": "화요일 ~ 목요일 (주말 출발 전 배송받기 위해 주문 집중)",
+                    "골든타임 발행 시간 1": "오전 07:30 ~ 08:30 (직장인 출근길 검색 피크)",
+                    "골든타임 발행 시간 2": "밤 21:00 ~ 22:30 (퇴근 후 주말 장비 쇼핑 피크)",
+                    "피해야 할 시간": "금요일 저녁 ~ 토요일 오후 (이미 캠핑장 출발해 결제율 저조)",
+                },
+                {
+                    "상품 타겟 카테고리": "🏠 주방·살림·수납·청소·유아용품 (주부/육아맘 타겟)",
+                    "최고 효율 요일": "월요일 ~ 목요일 오전 & 일요일 밤",
+                    "골든타임 발행 시간 1": "오전 09:30 ~ 11:30 (아이 등원 후 살림/카페 탐색 시간)",
+                    "골든타임 발행 시간 2": "밤 22:00 ~ 23:30 (육아 퇴근 후 모바일 쇼핑 골든타임)",
+                    "피해야 할 시간": "평일 16:00 ~ 20:00 (하원 및 저녁 식사 준비로 가장 바쁜 시간)",
+                },
+                {
+                    "상품 타겟 카테고리": "🎁 기념일·시즌 선물·자취생 원룸 소형가전 (2030 타겟)",
+                    "최고 효율 요일": "일요일 저녁 ~ 수요일",
+                    "골든타임 발행 시간 1": "낮 12:00 ~ 13:10 (점심시간 모바일 쇼핑)",
+                    "골든타임 발행 시간 2": "밤 21:30 ~ 00:30 (침대에서 스마트폰 보는 시간)",
+                    "피해야 할 시간": "금요일·토요일 밤 (외출/모임 시간대)",
+                },
+            ])
+            st.dataframe(golden_schedule_df, use_container_width=True, hide_index=True)
+
     # ==================================================================================
-    # MENU 5: 💰 장부·심리가격·수수료·자금·세금 (+[2번 신규] 심리적 단수가격 9,800/19,800원 & 가격필터 맞춤 설계기)
+    # MENU 5: 💰 장부·개별배송함정·세무체크 (+[신규] 도매처 묶음배송 불가/개별배송 함정 경보기 + [신규] 세무 증빙 누락 방지 체크리스트)
     # ==================================================================================
-    elif main_menu == "💰 5. 장부·심리가격·수수료·자금·세금":
+    elif main_menu == "💰 5. 장부·개별배송함정·세무체크":
         sub_f1, sub_f2, sub_f_tier, sub_f3, sub_f4, sub_f5 = st.tabs([
             "💎 1. 실시간 수익장부 & 랭킹",
-            "🗓️ 2. 월별 정산 마감 & 그래프",
+            "🗓️ 2. 월별 정산 마감 & 세무 체크리스트",
             "👑 3. 스토어 등급 상승 진단기",
-            "🎁 4. 1+1 세트 · 옵션규정 · 추가상품",
+            "🎁 4. 1+1 세트 · 개별배송 함정 경보기 · 추가상품",
             "🏷️ 5. 심리적 단수가격 · 수수료절감 · 자금 · 세금",
             "📊 6. 구글 시트 원본 보기",
         ])
@@ -2456,7 +2537,7 @@ try:
                 components.html(ranking_component_html, height=max(240, len(df_ranked) * 64 + 35), scrolling=True)
 
         with sub_f2:
-            st.subheader("🗓️ 월별 정산 기록 마감 & 누적 수익 추이 (`월별_수익지출_요약` 탭 연동)")
+            st.subheader("🗓️ 월별 정산 기록 마감 & 🧾 세금계산서(지출증빙) 누락 방지 체크리스트")
             tsv_monthly_row = f"{settlement_ym}\t{total_rev}\t{total_wholesale_cost}\t{total_naver_fee}\t{total_ad_and_extra}\t{final_net_profit}\t{overall_margin_rate:.1f}%"
             pretty_monthly_preview = (
                 f"📌 [구글 시트 '월별_수익지출_요약' 탭 A열 클릭 후 Ctrl+V 하면 7칸에 자동 입력됩니다]\n"
@@ -2503,6 +2584,17 @@ try:
                         """
                     components.html(f"<!DOCTYPE html><html><body style='margin:0;font-family:Malgun Gothic,sans-serif;'><div style='background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;'><div style='font-size:12px;color:#94a3b8;margin-bottom:10px;'>🟦 파란 바: 월 총매출액 | 🟩 초록 바: 월 최종 순수익</div>{m_bars_html}</div></body></html>", height=max(180, len(df_m_valid) * 62 + 50), scrolling=True)
 
+            # [신규 기능] 5월 종합소득세 & 부가세 신고 대비 '도매처 예치금·지출증빙(세금계산서)' 누락 체크리스트
+            st.markdown("---")
+            st.markdown("#### 🧾 [매월 초 10일 전 필수!] 세금 폭탄 막는 도매처 매입 세금계산서 & 지출증빙 체크리스트")
+            st.caption("도매처 예치금(이머니)으로 발주한 내역은 **익월 10일 전까지 전자세금계산서(또는 지출증빙 현금영수증)**가 정상 발행되었는지 확인해야 부가세와 종합소득세에서 100% 비용 공제를 받습니다!")
+            tx_chk1 = st.checkbox("1️⃣ [도매매/도매꾹] 마이페이지 ➔ 세금계산서/현금영수증 메뉴에서 전월 구매확정 건 전자세금계산서 발행 완료 확인")
+            tx_chk2 = st.checkbox("2️⃣ [오너클랜/기타 도매처] 정산관리 ➔ 전월 발주분 매입 세금계산서 국세청(홈택스) 전송 여부 확인")
+            tx_chk3 = st.checkbox("3️⃣ [스마트스토어 센터] 정산관리 ➔ 세금계산서 조회에서 '네이버페이 수수료 매입 세금계산서' 금액 대조 완료")
+            tx_chk4 = st.checkbox("4️⃣ [국세청 홈택스] 위탁 발주에 사용하는 사업자 신용/체크카드가 홈택스 '사업용신용카드'에 등록되어 있는지 확인")
+            if all([tx_chk1, tx_chk2, tx_chk3, tx_chk4]):
+                st.success("🛡️ 이번 달 매입 지출증빙 점검이 100% 완료되었습니다! 누락되는 비용 없이 완벽히 절세 중입니다.")
+
         with sub_f_tier:
             st.subheader("👑 스마트스토어 등급 상승 (씨앗 ➡️ 새싹 ➡️ 파워 ➡️ 빅파워) 달성 시뮬레이터")
             tr1, tr2, tr3 = st.columns(3)
@@ -2541,34 +2633,55 @@ try:
                     else:
                         st.info(f"🎯 **남은 목표:** 건수 **{need_cnt:,}건** / 매출 **{need_rev:,}원** 추가 필요 👉 앞으로 {remain_days}일간 **하루 평균 {daily_need_cnt:.1f}건 ({daily_need_rev:,}원/일)** 판매하면 달성!")
 
+        # ------------------------------------------
+        # 업그레이드: 1+1 세트 마진 + [신규] 도매처 '묶음배송 불가 / 개별배송(수량별 배송비 반복 부과)' 함정 경보기
+        # ------------------------------------------
         with sub_f3:
-            st.subheader("🎁 1+1 세트 마진 설계기 · 옵션 추가금 규정 · ➕ 추가상품(업셀링) 수익 시뮬레이터")
+            st.subheader("🎁 1+1 세트 마진 설계기 · 🚨 도매처 '개별배송(수량별 택배비 반복부과)' 함정 경보기 · 추가상품")
             bd1, bd2, bd3, bd4 = st.columns(4)
             with bd1:
                 b_unit_w = st.number_input("1개당 도매원가 (원)", value=8900, step=500)
             with bd2:
                 b_unit_s = st.number_input("1개 단품 판매가 (원)", value=17900, step=500)
             with bd3:
-                b_ship_cost = st.number_input("도매처 1회 출고 택배비 (원)", value=3000, step=500)
+                b_ship_cost = st.number_input("도매처 기본 택배비 (원)", value=3000, step=500)
             with bd4:
                 b_bundle_disc = st.number_input("2개 구매 시 고객 추가할인액 (원)", value=2000, step=500)
+
+            w_ship_rule = st.radio(
+                "🚨 [필수 확인!] 도매처 상세페이지의 '묶음배송 / 택배비 부과 조건'을 선택하세요",
+                [
+                    "🟢 합배송 가능 (고객이 2~3개를 사도 도매처 택배비는 1번만 부과됨)",
+                    "🔴 묶음배송 불가 / 수량별 반복 부과 (부피 큰 캠핑/가구 등 1개마다 택배비가 각각 부과됨!)",
+                ],
+                horizontal=True,
+            )
 
             fee_r = ledger_fee_rate / 100.0
             single_fee = int(round((b_unit_s + b_ship_cost) * fee_r))
             single_net = (b_unit_s + b_ship_cost) - b_unit_w - b_ship_cost - single_fee
 
+            actual_w_ship_2 = b_ship_cost if "🟢" in w_ship_rule else (b_ship_cost * 2)
+            actual_w_ship_3 = b_ship_cost if "🟢" in w_ship_rule else (b_ship_cost * 3)
+
             bundle2_pay = (b_unit_s * 2) - b_bundle_disc
             bundle2_fee = int(round(bundle2_pay * fee_r))
-            bundle2_net = bundle2_pay - (b_unit_w * 2) - b_ship_cost - bundle2_fee
+            bundle2_net = bundle2_pay - (b_unit_w * 2) - actual_w_ship_2 - bundle2_fee
 
             bundle3_pay = (b_unit_s * 3) - (b_bundle_disc * 2)
             bundle3_fee = int(round(bundle3_pay * fee_r))
-            bundle3_net = bundle3_pay - (b_unit_w * 3) - b_ship_cost - bundle3_fee
+            bundle3_net = bundle3_pay - (b_unit_w * 3) - actual_w_ship_3 - bundle3_fee
+
+            if "🔴" in w_ship_rule:
+                st.error(
+                    f"🚨 **[개별배송 함정 경보!]** 이 상품은 도매처에서 수량마다 택배비를 중복 부과(2개 주문 시 택배비 {actual_w_ship_2:,}원, 3개 주문 시 {actual_w_ship_3:,}원)합니다! "
+                    "스마트스토어 등록 시 반드시 배송비 템플릿을 **'수량별 반복부과(1개당 3,000원)'**로 설정하고 **'묶음배송 불가'**로 체크하셔야 역마진을 피할 수 있습니다!"
+                )
 
             bc1, bc2, bc3 = st.columns(3)
             bc1.info(f"📦 **단품 1개 판매 시 (유료배송)**\n\n- 고객 결제액: {b_unit_s:,}원 (+배송비 {b_ship_cost:,}원)\n- **내 통장 순수익: {single_net:,}원**")
-            bc2.success(f"🔥 **[강력추천] 2개 세트 ({b_bundle_disc:,}원 할인 + 무료배송)**\n\n- 고객 결제액: **{bundle2_pay:,}원 (무료배송!)**\n- **내 통장 순수익: {bundle2_net:,}원** (단품 대비 **+{bundle2_net - single_net:,}원** 이득!)")
-            bc3.warning(f"👑 **3개 패밀리 세트 ({b_bundle_disc*2:,}원 할인 + 무료배송)**\n\n- 고객 결제액: **{bundle3_pay:,}원 (무료배송!)**\n- **내 통장 순수익: {bundle3_net:,}원** (단품 대비 **+{bundle3_net - single_net:,}원** 이득!)")
+            bc2.success(f"🔥 **2개 세트 ({b_bundle_disc:,}원 할인 + 무료배송 시)**\n\n- 도매처 지출 택배비: {actual_w_ship_2:,}원\n- **내 통장 순수익: {bundle2_net:,}원** (단품 대비 **{bundle2_net - single_net:+,}원**)")
+            bc3.warning(f"👑 **3개 세트 ({b_bundle_disc*2:,}원 할인 + 무료배송 시)**\n\n- 도매처 지출 택배비: {actual_w_ship_3:,}원\n- **내 통장 순수익: {bundle3_net:,}원** (단품 대비 **{bundle3_net - single_net:+,}원**)")
 
             st.markdown("---")
             st.markdown("#### 🚨 2. 스마트스토어 '옵션 추가금 한도(최저가 어뷰징 방지)' 규정 계산기")
@@ -2641,9 +2754,7 @@ try:
             f_col3.metric("🎉 블로그·카페 운영으로 아낀 수수료 보너스", f"+{saved_fee_by_blog:,}원 / 월", f"1년 누적 +{saved_fee_by_blog*12:,}원 절약!")
 
             st.markdown("---")
-            st.markdown("#### 🏷️ 2. 목표 마진 역산 & [신규] 심리적 단수 가격(900원/800원) · 가격대 필터 맞춤 설계기")
-            st.caption("계산된 가격이 `20,400원`일 때 이를 `19,800원`으로 맞추면 네이버 쇼핑 **'2만 원 미만 가격 필터'**에 걸리고 앞자리 숫자가 바뀌어 결제율이 2배 이상 뜁니다!")
-
+            st.markdown("#### 🏷️ 2. 목표 마진 역산 & 심리적 단수 가격(900원/800원) · 가격대 필터 맞춤 설계기")
             sim_c1, sim_c2, sim_c3, sim_c4 = st.columns(4)
             with sim_c1:
                 sim_w_cost = st.number_input("1️⃣ 도매 공급원가 (원)", value=13000, step=500)
@@ -2659,16 +2770,13 @@ try:
             recommended_list_price = required_actual_pay + sim_coupon
             bep_price = int(round((sim_w_cost + sim_ship_subsidy) / (1.0 - fee_ratio), -1))
 
-            # [2번 신규 기능] 심리적 단수 가격(800원/900원 끝자리) 및 만원 단위 필터 경계선(9,800 / 19,800 / 29,800) 자동 추천
             thousand_base = (required_actual_pay // 1000) * 1000
-            psych_opt1 = thousand_base - 100 if thousand_base > bep_price else thousand_base + 900  # 예: 19,900원
-            psych_opt2 = thousand_base + 800  # 예: 20,800원 또는 19,800원
-            decade_bracket = ((required_actual_pay // 10000) * 10000) - 200  # 예: 19,800원 / 29,800원
+            psych_opt1 = thousand_base - 100 if thousand_base > bep_price else thousand_base + 900
+            decade_bracket = ((required_actual_pay // 10000) * 10000) - 200
             if decade_bracket <= bep_price:
                 decade_bracket = ((required_actual_pay // 10000 + 1) * 10000) - 200
 
             p1_net = psych_opt1 - sim_w_cost - sim_ship_subsidy - int(round(psych_opt1 * fee_ratio))
-            p2_net = psych_opt2 - sim_w_cost - sim_ship_subsidy - int(round(psych_opt2 * fee_ratio))
             p3_net = decade_bracket - sim_w_cost - sim_ship_subsidy - int(round(decade_bracket * fee_ratio))
 
             res_c1, res_c2, res_c3 = st.columns(3)
