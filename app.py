@@ -11,16 +11,16 @@ import calendar
 # SSL 보안 경고 무시 (일부 도매 사이트 크롤링 오류 방지)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-st.set_page_config(page_title="스마트스토어 위탁판매 매니저", layout="wide")
+st.set_page_config(page_title="스마트스토어 위탁판매 & 장부 매니저", layout="wide")
 
 # 한국 시간(KST) 기준 오늘 날짜 계산
 KST = timezone(timedelta(hours=9))
 today = datetime.now(KST).date()
 
-st.title("🛒 스마트스토어 위탁판매 & 시즌 소싱 통합 매니저")
+st.title("🛒 스마트스토어 위탁판매 & 수익장부·인포그래픽 통합 매니저")
 st.write(
     f"📅 **오늘 날짜: {today.strftime('%Y년 %m월 %d일')}** | "
-    "다가오는 쇼핑 기념일(3~4주 전) 소싱 알림, 도매처 품절 스캔, 블로그 인포그래픽 제작(복사 & PNG 저장)을 한곳에서 관리합니다."
+    "시즌 소싱 캘린더, 도매처 품절 스캔, **수익·지출 장부 관리**, **5종 블로그 인포그래픽 제작(복사 & PNG 저장)**을 한곳에서 관리합니다."
 )
 
 # ==========================================
@@ -88,9 +88,7 @@ def get_upcoming_events(ref_date):
 
 upcoming_list = get_upcoming_events(today)
 
-# ==========================================
 # 상단 고정: 3~4주 전 소싱 골든타임 자동 알림 배너
-# ==========================================
 golden_events = [e for e in upcoming_list if e["d_day"] <= 42]
 if golden_events:
     with st.container(border=True):
@@ -115,9 +113,9 @@ if golden_events:
                 )
 
 # ==========================================
-# 2. 구글 시트 연동 설정 (본인의 시트 ID와 gid로 변경 가능)
+# 2. 새로 생성된 구글 시트 자동 연동 설정
 # ==========================================
-sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"
+sheet_id = "12g0e-ER14x2cyx2ipEAluZjHU5FAxUNpKIrg6sP1jiI"
 gid = "0"
 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
@@ -183,10 +181,10 @@ def check_wholesale_status(url):
 
 
 # ==========================================
-# 4. 데이터 로드 및 4대 탭 구성
+# 4. 데이터 로드 및 5대 핵심 탭 구성
 # ==========================================
 try:
-    with st.spinner("구글 시트 데이터를 확인하는 중입니다..."):
+    with st.spinner("구글 시트 데이터를 불러오는 중입니다..."):
         try:
             df = load_data(csv_url)
         except Exception:
@@ -194,6 +192,10 @@ try:
 
     required_cols = ["상품명", "도매처링크", "도매원가", "판매가"]
     if df.empty or not all(col in df.columns for col in required_cols):
+        st.info(
+            "💡 구글 시트 우측 상단의 **[공유] -> '링크가 있는 모든 사용자(뷰어)'**로 설정하시면 시트 데이터가 실시간 연동됩니다. "
+            "(현재는 시트에 세팅된 기본 데이터와 동일한 내장 데이터로 표시 중입니다.)"
+        )
         df = pd.DataFrame([
             {
                 "상품명": "캠핑용 초경량 감성 우드 롤테이블",
@@ -204,6 +206,8 @@ try:
                 "판매가": 28900,
                 "배송비": 3000,
                 "블로그홍보링크": "https://blog.naver.com/",
+                "누적판매수량": 18,
+                "광고및기타지출": 15000,
             },
             {
                 "상품명": "차량용 무선 초강력 미니 청소기",
@@ -214,18 +218,68 @@ try:
                 "판매가": 21900,
                 "배송비": 3000,
                 "블로그홍보링크": "https://cafe.naver.com/",
+                "누적판매수량": 25,
+                "광고및기타지출": 20000,
+            },
+            {
+                "상품명": "충전식 손난로 보조배터리 10000mAh",
+                "도매처명": "도매매",
+                "도매처링크": "https://domemedb.domeggook.com/",
+                "스마트스토어링크": "https://smartstore.naver.com/",
+                "도매원가": 8900,
+                "판매가": 17900,
+                "배송비": 3000,
+                "블로그홍보링크": "https://blog.naver.com/",
+                "누적판매수량": 42,
+                "광고및기타지출": 30000,
+            },
+            {
+                "상품명": "크리스마스 미니 트리 LED 풀세트",
+                "도매처명": "도매꾹",
+                "도매처링크": "https://domeggook.com/",
+                "스마트스토어링크": "https://smartstore.naver.com/",
+                "도매원가": 14000,
+                "판매가": 26900,
+                "배송비": 3000,
+                "블로그홍보링크": "https://blog.naver.com/",
+                "누적판매수량": 30,
+                "광고및기타지출": 25000,
+            },
+            {
+                "상품명": "겨울 방한 가습기 대용량 무드등",
+                "도매처명": "오너클랜",
+                "도매처링크": "https://ownerclan.com/",
+                "스마트스토어링크": "https://smartstore.naver.com/",
+                "도매원가": 11500,
+                "판매가": 22500,
+                "배송비": 3000,
+                "블로그홍보링크": "https://cafe.naver.com/",
+                "누적판매수량": 15,
+                "광고및기타지출": 10000,
             },
         ])
 
-    tab_cal, tab1, tab2, tab3 = st.tabs([
-        "📅 1. 시즌/기념일 소싱 캘린더 (3~4주 전 알림)",
-        "🚨 2. 도매처 품절/단종 일괄 스캔",
-        "🎨 3. 인포그래픽 카드 제작 (복사 & PNG 저장)",
-        "📊 4. 구글 시트 원본 데이터",
+    # 숫자형 컬럼 안전 변환 (통화 기호나 콤마가 있어도 숫자로 자동 인식)
+    def clean_num(series, default=0):
+        if series is None:
+            return pd.Series([default] * len(df))
+        return pd.to_numeric(series.astype(str).str.replace(r"[^0-9.-]", "", regex=True), errors="coerce").fillna(default)
+
+    df["도매원가_num"] = clean_num(df.get("도매원가"), 0)
+    df["판매가_num"] = clean_num(df.get("판매가"), 0)
+    df["누적판매수량_num"] = clean_num(df.get("누적판매수량"), 0)
+    df["광고및기타지출_num"] = clean_num(df.get("광고및기타지출"), 0)
+
+    tab_cal, tab_scan, tab_ledger, tab_info, tab_raw = st.tabs([
+        "📅 1. 시즌/기념일 소싱 캘린더",
+        "🚨 2. 도매처 품절/단종 스캔",
+        "💰 3. 수익·지출 장부 대시보드",
+        "🎨 4. 5종 인포그래픽 스튜디오 (복사 & PNG)",
+        "📊 5. 구글 시트 원본 & 바로가기",
     ])
 
     # ==========================================
-    # TAB 0: 시즌/기념일 소싱 캘린더 (들여쓰기 버그 및 폭 맞춤 완벽 해결)
+    # TAB 1: 시즌/기념일 소싱 캘린더
     # ==========================================
     with tab_cal:
         st.subheader("📅 연간 기념일 소싱 로드맵 & 월별 달력")
@@ -244,18 +298,15 @@ try:
             with c_mo:
                 sel_month = st.selectbox("월 선택 (달력 확인)", list(range(1, 13)), index=today.month - 1, format_func=lambda x: f"{x}월")
 
-            # 선택한 월의 기념일 매핑
             month_events = {e["day"]: e["name"] for e in SEASONAL_EVENTS if e["month"] == sel_month}
 
-            # 선택한 월에 '3~4주 전 소싱 시작일'이 걸려있는 다음 달 기념일 매핑
             prep_alerts_in_month = []
             for e in SEASONAL_EVENTS:
                 ev_dt = datetime(sel_year, e["month"], e["day"]).date()
-                prep_dt = ev_dt - timedelta(days=25)  # 약 3.5주 전
+                prep_dt = ev_dt - timedelta(days=25)
                 if prep_dt.month == sel_month:
                     prep_alerts_in_month.append((prep_dt.day, e["name"], f"{e['month']}/{e['day']}", e["items"]))
 
-            # 달력 행 HTML 생성 (components.html 사용으로 마크다운 코드블록 버그 원천 차단)
             cal_matrix = calendar.monthcalendar(sel_year, sel_month)
             rows_html = ""
             for week in cal_matrix:
@@ -288,90 +339,35 @@ try:
             <head>
             <meta charset="utf-8">
             <style>
-                body {{
-                    margin: 0;
-                    padding: 0;
-                    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-                    background-color: transparent;
-                }}
-                .cal-table {{
-                    width: 100%;
-                    table-layout: fixed;
-                    border-collapse: collapse;
-                    background-color: #ffffff;
-                    border-radius: 10px;
-                    overflow: hidden;
-                    border: 2px solid #334155;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-                }}
-                .cal-table th {{
-                    background-color: #1e293b;
-                    color: #ffffff;
-                    padding: 10px 0;
-                    font-size: 13px;
-                    font-weight: 800;
-                    border: 1px solid #334155;
-                    text-align: center;
-                }}
-                .cal-table td {{
-                    height: 60px;
-                    vertical-align: top;
-                    padding: 6px 4px;
-                    border: 1px solid #e2e8f0;
-                    text-align: center;
-                    box-sizing: border-box;
-                }}
+                body {{ margin: 0; padding: 0; font-family: 'Malgun Gothic', sans-serif; background-color: transparent; }}
+                .cal-table {{ width: 100%; table-layout: fixed; border-collapse: collapse; background-color: #ffffff; border-radius: 10px; overflow: hidden; border: 2px solid #334155; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }}
+                .cal-table th {{ background-color: #1e293b; color: #ffffff; padding: 10px 0; font-size: 13px; font-weight: 800; border: 1px solid #334155; text-align: center; }}
+                .cal-table td {{ height: 60px; vertical-align: top; padding: 6px 4px; border: 1px solid #e2e8f0; text-align: center; box-sizing: border-box; }}
                 .empty-cell {{ background-color: #f8fafc; }}
                 .cell-normal {{ background-color: #ffffff; }}
                 .cell-today {{ background-color: #dcfce7; border: 2px solid #16a34a !important; }}
                 .cell-event {{ background-color: #fee2e2; }}
                 .cell-prep {{ background-color: #fef3c7; }}
-                .day-num {{
-                    font-size: 13px;
-                    font-weight: 800;
-                    margin-bottom: 3px;
-                }}
-                .badge {{
-                    font-size: 10px;
-                    font-weight: 800;
-                    padding: 2px 3px;
-                    border-radius: 4px;
-                    margin-top: 2px;
-                    line-height: 1.2;
-                    word-break: keep-all;
-                }}
+                .day-num {{ font-size: 13px; font-weight: 800; margin-bottom: 3px; }}
+                .badge {{ font-size: 10px; font-weight: 800; padding: 2px 3px; border-radius: 4px; margin-top: 2px; line-height: 1.2; word-break: keep-all; }}
                 .badge-today {{ background-color: #16a34a; color: #ffffff; }}
                 .badge-event {{ color: #dc2626; }}
                 .badge-prep {{ color: #b45309; }}
-                .legend {{
-                    margin-top: 8px;
-                    font-size: 12px;
-                    color: #cbd5e1;
-                    text-align: center;
-                }}
             </style>
             </head>
             <body>
                 <table class="cal-table">
                     <thead>
                         <tr>
-                            <th>월</th>
-                            <th>화</th>
-                            <th>수</th>
-                            <th>목</th>
-                            <th>금</th>
-                            <th style="color:#93c5fd;">토</th>
-                            <th style="color:#fca5a5;">일</th>
+                            <th>월</th><th>화</th><th>수</th><th>목</th><th>금</th>
+                            <th style="color:#93c5fd;">토</th><th style="color:#fca5a5;">일</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {rows_html}
-                    </tbody>
+                    <tbody>{rows_html}</tbody>
                 </table>
             </body>
             </html>
             """
-            # 주(week) 수에 따라 높이 자동 조절
             cal_height = 65 + (len(cal_matrix) * 64)
             components.html(calendar_component_html, height=cal_height, scrolling=False)
             st.caption("🟥 빨간칸: 해당 월 기념일 당일 | 🟨 노란칸: 다음 대목 3~4주 전 소싱 시작일 | 🟩 초록칸: 오늘")
@@ -406,9 +402,9 @@ try:
             st.dataframe(df_sched, use_container_width=True, hide_index=True, height=560)
 
     # ==========================================
-    # TAB 1: 도매처 품절/단종 일괄 스캔
+    # TAB 2: 도매처 품절/단종 일괄 스캔
     # ==========================================
-    with tab1:
+    with tab_scan:
         st.subheader("🔍 등록 상품 도매처 생존 및 품절 일괄 점검")
         st.write("주문 접수 시 또는 매일 아침 버튼을 눌러 도매처 링크가 살아있는지 한 번에 검사하세요.")
 
@@ -431,8 +427,8 @@ try:
                 w_url = str(row.get("도매처링크", ""))
                 s_url = str(row.get("스마트스토어링크", ""))
                 b_url = str(row.get("블로그홍보링크", ""))
-                w_price = pd.to_numeric(row.get("도매원가", 0), errors="coerce") or 0
-                s_price = pd.to_numeric(row.get("판매가", 0), errors="coerce") or 0
+                w_price = int(row.get("도매원가_num", 0))
+                s_price = int(row.get("판매가_num", 0))
 
                 status_badge, detail_msg = check_wholesale_status(w_url)
 
@@ -441,8 +437,8 @@ try:
                     "상태": status_badge,
                     "상품명": p_name,
                     "도매처": w_name,
-                    "도매원가": f"{int(w_price):,}원",
-                    "스토어판매가": f"{int(s_price):,}원",
+                    "도매원가": f"{w_price:,}원",
+                    "스토어판매가": f"{s_price:,}원",
                     "점검 결과 상세": detail_msg,
                     "도매처 링크": w_url,
                     "내 스토어": s_url,
@@ -473,10 +469,104 @@ try:
             )
 
     # ==========================================
-    # TAB 2: 개별 상품 점검 & 인포그래픽 스튜디오 (원클릭 복사 + PNG 다운로드)
+    # TAB 3 (신규): 수익·지출 장부 대시보드
     # ==========================================
-    with tab2:
-        st.subheader("🎨 실시간 인포그래픽 홍보 카드 메이커 (클립보드 복사 & PNG 사진 저장)")
+    with tab_ledger:
+        st.subheader("💰 스마트스토어 수익·지출 통합 장부 대시보드")
+        st.write(
+            "구글 시트에 입력된 `도매원가`, `판매가`, `누적판매수량`, `광고및기타지출`을 기반으로 "
+            "**총매출·총지출·최종 순수익**을 실시간으로 정산합니다."
+        )
+
+        col_fee_opt, col_extra_exp = st.columns(2)
+        with col_fee_opt:
+            ledger_fee_rate = st.number_input("📉 정산 기준 네이버 수수료율 (%)", value=5.6, step=0.1, key="ledger_fee")
+        with col_extra_exp:
+            extra_fixed_cost = st.number_input("🧾 이번 달 추가 고정 지출 (택배박스/프로그램비 등, 원)", value=0, step=5000)
+
+        # 장부 정밀 계산
+        ledger_rows = []
+        total_rev = 0
+        total_wholesale_cost = 0
+        total_naver_fee = 0
+        total_ad_cost = 0
+
+        for idx, row in df.iterrows():
+            p_name = str(row.get("상품명", f"상품 {idx+1}"))
+            w_name = str(row.get("도매처명", "-"))
+            w_p = int(row.get("도매원가_num", 0))
+            s_p = int(row.get("판매가_num", 0))
+            qty = int(row.get("누적판매수량_num", 0))
+            ad_c = int(row.get("광고및기타지출_num", 0))
+
+            unit_fee = int(round(s_p * (ledger_fee_rate / 100)))
+            unit_margin = s_p - w_p - unit_fee
+
+            item_rev = s_p * qty
+            item_w_cost = w_p * qty
+            item_fee_cost = unit_fee * qty
+            item_total_exp = item_w_cost + item_fee_cost + ad_c
+            item_net_profit = item_rev - item_total_exp
+            item_roi = (item_net_profit / item_rev * 100) if item_rev > 0 else 0.0
+
+            total_rev += item_rev
+            total_wholesale_cost += item_w_cost
+            total_naver_fee += item_fee_cost
+            total_ad_cost += ad_c
+
+            ledger_rows.append({
+                "상품명": p_name,
+                "도매처": w_name,
+                "판매단가": f"{s_p:,}원",
+                "개당순마진": f"{unit_margin:,}원",
+                "판매수량": f"{qty:,}개",
+                "총매출액 (수익)": f"{item_rev:,}원",
+                "도매원가 합계": f"{item_w_cost:,}원",
+                "수수료 합계": f"{item_fee_cost:,}원",
+                "광고/기타지출": f"{ad_c:,}원",
+                "최종 순수익": item_net_profit,
+                "순수익(표시)": f"{item_net_profit:,}원",
+                "실마진율": f"{item_roi:.1f}%",
+            })
+
+        total_expense = total_wholesale_cost + total_naver_fee + total_ad_cost + extra_fixed_cost
+        final_net_profit = total_rev - total_expense
+        overall_margin_rate = (final_net_profit / total_rev * 100) if total_rev > 0 else 0.0
+
+        # 상단 4대 요약 카드
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("📈 총 매출액 (Gross 수익)", f"{total_rev:,}원")
+        k2.metric("💸 총 지출 합계 (원가+수수료+광고)", f"{total_expense:,}원", f"-도매원가 {total_wholesale_cost:,}원", delta_color="inverse")
+        k3.metric("💎 최종 순수익 (Net Profit)", f"{final_net_profit:,}원", f"마진율 {overall_margin_rate:.1f}%")
+        k4.metric("📢 마케팅·기타 총지출", f"{total_ad_cost + extra_fixed_cost:,}원", f"네이버수수료 {total_naver_fee:,}원 별도", delta_color="off")
+
+        st.markdown("---")
+
+        df_ledger = pd.DataFrame(ledger_rows)
+
+        col_l_table, col_l_chart = st.columns([1.45, 1.0], gap="large")
+        with col_l_table:
+            st.markdown("#### 📋 상품별 수익·지출 상세 명세서")
+            display_cols = [
+                "상품명", "도매처", "판매수량", "총매출액 (수익)",
+                "도매원가 합계", "수수료 합계", "광고/기타지출", "순수익(표시)", "실마진율"
+            ]
+            st.dataframe(df_ledger[display_cols], use_container_width=True, hide_index=True)
+
+        with col_l_chart:
+            st.markdown("#### 📊 상품별 최종 순수익 효자 상품 랭킹")
+            chart_df = df_ledger[["상품명", "최종 순수익"]].set_index("상품명")
+            st.bar_chart(chart_df)
+
+        st.info(
+            "💡 **장부 업데이트 방법:** [5. 구글 시트 원본 & 바로가기] 탭에서 시트를 열어 `누적판매수량`이나 `광고및기타지출` 숫자만 고치면 이 장부가 자동으로 계산됩니다!"
+        )
+
+    # ==========================================
+    # TAB 4: 5종 인포그래픽 카드 제작 스튜디오 (복사 & PNG 다운로드)
+    # ==========================================
+    with tab_info:
+        st.subheader("🎨 5종 블로그·카페 인포그래픽 스튜디오 (클립보드 복사 & PNG 사진 저장)")
 
         df["상품선택"] = (
             df.index.astype(str)
@@ -487,7 +577,20 @@ try:
         )
         product_list = ["➕ [직접 수동 입력 / 신규 상품 작성]"] + df["상품선택"].tolist()
 
-        selected_prod_str = st.selectbox("시트에 등록된 상품을 불러오거나 직접 작성하세요", product_list)
+        top_sel1, top_sel2 = st.columns([1.2, 1.2])
+        with top_sel1:
+            selected_prod_str = st.selectbox("1️⃣ 시트에 등록된 상품을 불러오거나 직접 작성하세요", product_list)
+        with top_sel2:
+            template_type = st.selectbox(
+                "2️⃣ 홍보용 인포그래픽 템플릿 스타일 선택 (5종)",
+                [
+                    "① [기본형] 스탠다드 상품 추천 & 스펙 요약 카드",
+                    "② [비교형] 타사 일반 제품 VS 우리 스토어 1:1 팩트 비교표",
+                    "③ [후기형] 실구매자 베스트 별점 리뷰 3선 모음 카드",
+                    "④ [Q&A형] 구매 전 필수 체크! 자주 묻는 질문 & 해답 카드",
+                    "⑤ [특가배너형] 타임특가 & 선착순 한정수량 쿠폰 배너",
+                ],
+            )
 
         if selected_prod_str != "➕ [직접 수동 입력 / 신규 상품 작성]":
             sel_idx = int(selected_prod_str.split(" | ")[0])
@@ -496,43 +599,17 @@ try:
             row = None
 
         default_p_name = str(row.get("상품명", "캠핑용 초경량 감성 우드 롤테이블")) if row is not None else "캠핑용 초경량 감성 우드 롤테이블"
-        default_w_url = str(row.get("도매처링크", "https://domeggook.com/")) if row is not None else "https://domeggook.com/"
         default_s_url = str(row.get("스마트스토어링크", "https://smartstore.naver.com/")) if row is not None else "https://smartstore.naver.com/"
-        default_w_price = int(pd.to_numeric(row.get("도매원가", 16500), errors="coerce") or 16500) if row is not None else 16500
-        default_s_price = int(pd.to_numeric(row.get("판매가", 28900), errors="coerce") or 28900) if row is not None else 28900
-
-        with st.expander("💰 이 상품 마진 계산기 & 도매처 품절 즉시 점검 (클릭하여 열기)", expanded=False):
-            mc1, mc2 = st.columns(2)
-            with mc1:
-                w_url_input = st.text_input("🔗 도매처 원본 URL", value=default_w_url)
-                w_price_input = st.number_input("💵 도매 공급가 (원)", value=default_w_price, step=500)
-                fee_rate = st.number_input("📉 네이버 수수료율 (%)", value=5.6, step=0.1)
-            with mc2:
-                naver_fee = int(default_s_price * (fee_rate / 100))
-                net_profit = default_s_price - w_price_input - naver_fee
-                margin_rate = (net_profit / default_s_price * 100) if default_s_price > 0 else 0.0
-
-                st.info(
-                    f"💰 **예상 순수익: {net_profit:,}원** (마진율: **{margin_rate:.1f}%**)\n\n"
-                    f"*(판매가 {default_s_price:,}원 - 도매원가 {w_price_input:,}원 - 수수료 약 {naver_fee:,}원)*"
-                )
-                if st.button("🔍 도매처 현재 상태 즉시 테스트", use_container_width=True):
-                    status_badge, detail_msg = check_wholesale_status(w_url_input)
-                    if "🟢" in status_badge:
-                        st.success(f"{status_badge} : {detail_msg}")
-                    elif "🔴" in status_badge:
-                        st.error(f"{status_badge} : {detail_msg}")
-                    else:
-                        st.warning(f"{status_badge} : {detail_msg}")
+        default_s_price = int(row.get("판매가_num", 28900)) if row is not None else 28900
 
         st.markdown("---")
 
         edit_col, preview_col = st.columns([1.05, 1.25], gap="large")
 
         with edit_col:
-            st.markdown("#### ✏️ 1. 인포그래픽 텍스트 & 디자인 실시간 수정")
+            st.markdown("#### ✏️ 공통 기본 정보 & 컬러 테마 설정")
             p_name = st.text_input("📦 상품 메인 제목", value=default_p_name)
-            p_sub = st.text_input("💬 한 줄 서브 카피", value="설치 1분 완성! 감성과 실용성을 모두 잡은 캠핑 필수템")
+            p_sub = st.text_input("💬 한 줄 서브 카피", value="설치 1분 완성! 감성과 실용성을 모두 잡은 필수 아이템")
 
             cp1, cp2, cp3 = st.columns(3)
             with cp1:
@@ -540,22 +617,9 @@ try:
             with cp2:
                 s_price = st.number_input("스마트스토어 판매가", value=default_s_price, step=500)
             with cp3:
-                ship_info = st.selectbox("🚚 배송/혜택 강조 태그", ["무료배송", "오늘출발", "당일발송", "특가할인", "사은품증정"])
+                ship_info = st.selectbox("🚚 혜택 강조 태그", ["무료배송", "오늘출발", "당일발송", "특가할인", "사은품증정"])
 
             disc_rate = int((1 - (s_price / orig_price)) * 100) if orig_price > s_price and orig_price > 0 else 0
-
-            st.markdown("#### 📊 2. 핵심 체크포인트 3가지 & 스펙표")
-            feat1 = st.text_input("✔️ 핵심 포인트 1", value="초경량 원목 소재로 흔들림 없는 튼튼한 내구성")
-            feat2 = st.text_input("✔️ 핵심 포인트 2", value="전용 수납 파우치 기본 증정으로 간편한 휴대")
-            feat3 = st.text_input("✔️ 핵심 포인트 3", value="실내 인테리어 및 베란다 홈캠핑용으로도 안성맞춤")
-
-            sp1, sp2 = st.columns(2)
-            with sp1:
-                spec_label1 = st.text_input("스펙 항목 1", value="소재 / 중량")
-                spec_val1 = st.text_input("스펙 내용 1", value="천연 비치우드 / 약 2.8kg")
-            with sp2:
-                spec_label2 = st.text_input("스펙 항목 2", value="발송 / AS 안내")
-                spec_val2 = st.text_input("스펙 내용 2", value="국내 당일발송 / 초기불량 100% 교환")
 
             cs1, cs2 = st.columns(2)
             with cs1:
@@ -564,24 +628,73 @@ try:
             with cs2:
                 theme_choice = st.selectbox(
                     "🎨 카드 컬러 테마",
-                    ["네이버 그린 (#03c75a)", "다크 네이비 (#1e3a8a)", "코랄 레드 (#e11d48)", "모던 블랙 (#18181b)"],
+                    ["네이버 그린 (#03c75a)", "다크 네이비 (#1e3a8a)", "코랄 레드 (#e11d48)", "모던 블랙 (#18181b)", "퍼플 라벤더 (#6d28d9)"],
                 )
                 s_url = st.text_input("🏪 스마트스토어 구매 링크", value=default_s_url)
 
             img_url = st.text_input(
-                "🖼️ 상품 이미지 URL (선택사항 - 넣으면 카드 중앙에 사진이 들어갑니다)",
+                "🖼️ 상품 이미지 URL (선택사항 - 넣으면 카드 중앙에 사진 표시)",
                 value="",
-                placeholder="https://... (이미지 주소 입력 시 반영, 비워두면 깔끔한 인포그래픽 표로 생성)",
+                placeholder="https://... (비워두면 깔끔한 인포그래픽 전용 표로 생성)",
             )
+
+            st.markdown("#### 📝 선택한 템플릿 전용 상세 문구 편집")
+
+            # 템플릿별 맞춤 입력창
+            if "①" in template_type:
+                feat1 = st.text_input("✔️ 핵심 포인트 1", value="초경량 프리미엄 소재로 흔들림 없는 튼튼한 내구성")
+                feat2 = st.text_input("✔️ 핵심 포인트 2", value="전용 수납 파우치 기본 증정으로 언제 어디서나 간편 휴대")
+                feat3 = st.text_input("✔️ 핵심 포인트 3", value="실내 인테리어 및 선물용으로도 손색없는 감성 디자인")
+                sp1, sp2 = st.columns(2)
+                with sp1:
+                    spec_label1 = st.text_input("스펙 항목 1", value="소재 / 규격")
+                    spec_val1 = st.text_input("스펙 내용 1", value="프리미엄 친환경 소재 / 표준 사이즈")
+                with sp2:
+                    spec_label2 = st.text_input("스펙 항목 2", value="발송 / AS 안내")
+                    spec_val2 = st.text_input("스펙 내용 2", value="국내 당일발송 / 초기불량 100% 무상교환")
+
+            elif "②" in template_type:
+                comp_criteria1 = st.text_input("비교 기준 1", value="핵심 소재 & 내구성")
+                comp_bad1 = st.text_input("타사 일반 제품 1", value="저가형 얇은 소재로 쉽게 변형됨")
+                comp_good1 = st.text_input("우리 스토어 상품 1", value="고밀도 프리미엄 소재로 반영구적 사용")
+
+                comp_criteria2 = st.text_input("비교 기준 2", value="구성품 & 패키지")
+                comp_bad2 = st.text_input("타사 일반 제품 2", value="본품만 단품 발송 (케이스 별도 구매)")
+                comp_good2 = st.text_input("우리 스토어 상품 2", value="전용 고급 파우치 + 풀세트 기본 증정")
+
+                comp_criteria3 = st.text_input("비교 기준 3", value="배송 & 사후 관리")
+                comp_bad3 = st.text_input("타사 일반 제품 3", value="해외직구 2주 소요 / 교환·환불 어려움")
+                comp_good3 = st.text_input("우리 스토어 상품 3", value="국내 검수 후 당일발송 / 100% 책임 AS")
+
+            elif "③" in template_type:
+                rev1_user = st.text_input("리뷰어 1 정보", value="네이버페이 실구매자 (kim***님) | 재구매")
+                rev1_text = st.text_input("베스트 후기 1", value="비슷한 제품 여러 개 써봤는데 마감 퀄리티가 확실히 다릅니다! 배송도 하루 만에 왔어요.")
+                rev2_user = st.text_input("리뷰어 2 정보", value="스마트스토어 한달사용기 (lee***님)")
+                rev2_text = st.text_input("베스트 후기 2", value="가성비 최고예요. 지인 선물용으로 샀다가 너무 마음에 들어서 제 것도 하나 더 주문했습니다!")
+                rev3_user = st.text_input("리뷰어 3 정보", value="네이버페이 실구매자 (par***님)")
+                rev3_text = st.text_input("베스트 후기 3", value="포장도 꼼꼼하고 사진보다 실물이 훨씬 예쁩니다. 고민하시는 분들 무조건 추천해요!")
+
+            elif "④" in template_type:
+                q1_text = st.text_input("질문 Q1", value="오늘 주문하면 언제 발송되나요?")
+                a1_text = st.text_input("답변 A1", value="평일 오후 2시 이전 주문 건은 당일 출고되어 보통 다음 날 바로 받아보실 수 있습니다.")
+                q2_text = st.text_input("질문 Q2", value="초보자도 쉽게 사용할 수 있나요?")
+                a2_text = st.text_input("답변 A2", value="네! 별도의 복잡한 조립 없이 개봉 후 1분 만에 누구나 간편하게 사용하실 수 있습니다.")
+                q3_text = st.text_input("질문 Q3", value="불량이거나 마음에 안 들면 교환/환불 되나요?")
+                a3_text = st.text_input("답변 A3", value="수령 후 7일 이내 단순 변심은 물론, 초기 불량 시 판매자가 배송비를 100% 부담하여 즉시 교환해 드립니다.")
+
+            elif "⑤" in template_type:
+                promo_headline = st.text_input("🔥 특가 메인 타이틀", value="⚡ 블로그·카페 이웃 전용 시크릿 타임특가!")
+                coupon_text = st.text_input("🎟️ 추가 혜택 문구", value="스토어 알림받기 설정 시 추가 할인 쿠폰 즉시 발급 + 무료배송")
+                stock_limit = st.text_input("⏳ 잔여 수량 / 마감 안내", value="준비된 이벤트 수량 50개 소진 시 예고 없이 정상가로 인상됩니다.")
 
         theme_map = {
             "네이버 그린 (#03c75a)": ("#03c75a", "#e8f8f0"),
             "다크 네이비 (#1e3a8a)": ("#1e3a8a", "#eff6ff"),
             "코랄 레드 (#e11d48)": ("#e11d48", "#fff1f2"),
             "모던 블랙 (#18181b)": ("#18181b", "#f4f4f5"),
+            "퍼플 라벤더 (#6d28d9)": ("#6d28d9", "#f5f3ff"),
         }
         main_color, sub_bg = theme_map[theme_choice]
-
         safe_filename = re.sub(r"[^가-힣a-zA-Z0-9_-]", "_", p_name)[:25] or "smartstore_card"
 
         img_block = ""
@@ -589,7 +702,7 @@ try:
             img_block = f"""
             <tr>
                 <td colspan="2" align="center" style="padding: 16px 24px 6px 24px; background-color: #ffffff;">
-                    <img src="{img_url.strip()}" crossorigin="anonymous" style="max-width: 100%; max-height: 320px; height: auto; border-radius: 10px; border: 1px solid #e5e7eb;" alt="상품 이미지" />
+                    <img src="{img_url.strip()}" crossorigin="anonymous" style="max-width: 100%; max-height: 300px; height: auto; border-radius: 10px; border: 1px solid #e5e7eb;" alt="상품 이미지" />
                 </td>
             </tr>
             """
@@ -599,6 +712,183 @@ try:
             if disc_rate > 0
             else ""
         )
+
+        # 공통 가격 박스
+        price_box_html = f"""
+        <tr>
+            <td colspan="2" style="padding: 14px 24px; background-color: #ffffff;">
+                <table width="100%" style="border-collapse: collapse; background-color: {sub_bg}; border-radius: 10px; border: 1px solid {main_color}33;" bgcolor="{sub_bg}">
+                    <tr>
+                        <td style="padding: 15px 20px; width: 65%;">
+                            <div style="font-size: 13px; color: #777777; text-decoration: line-through;">정상가 {orig_price:,}원</div>
+                            <div style="margin-top: 4px;">
+                                {discount_badge_html}
+                                <span style="font-size: 26px; font-weight: 900; color: #111111;">{s_price:,}원</span>
+                            </div>
+                        </td>
+                        <td align="right" style="padding: 15px 20px; width: 35%;">
+                            <span style="background-color: {main_color}; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 800; display: inline-block;">🚚 {ship_info}</span>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        """
+
+        # 템플릿별 중앙 본문 조립
+        if "①" in template_type:
+            body_section_html = f"""
+            {price_box_html}
+            <tr>
+                <td colspan="2" style="padding: 4px 24px 16px 24px; background-color: #ffffff;">
+                    <table width="100%" style="border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px;">
+                        <tr bgcolor="#f8fafc">
+                            <td style="padding: 11px 16px; font-size: 14px; font-weight: 800; color: #1e293b; border-bottom: 1px solid #e5e7eb;">
+                                📌 핵심 체크포인트 TOP 3
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 16px; font-size: 14.5px; color: #222222; line-height: 1.85; background-color: #ffffff;">
+                                <div style="margin-bottom: 4px;">✅ <b>POINT 1.</b> {feat1}</div>
+                                <div style="margin-bottom: 4px;">✅ <b>POINT 2.</b> {feat2}</div>
+                                <div>✅ <b>POINT 3.</b> {feat3}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="padding: 0px 24px 18px 24px; background-color: #ffffff;">
+                    <table width="100%" style="border-collapse: collapse; border: 1px solid #e5e7eb; font-size: 13px;">
+                        <tr>
+                            <td width="28%" bgcolor="#f8fafc" style="padding: 10px 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;">{spec_label1}</td>
+                            <td width="72%" style="padding: 10px 12px; color: #1e293b; border-bottom: 1px solid #e5e7eb;">{spec_val1}</td>
+                        </tr>
+                        <tr>
+                            <td width="28%" bgcolor="#f8fafc" style="padding: 10px 12px; font-weight: bold; color: #475569; border-right: 1px solid #e5e7eb;">{spec_label2}</td>
+                            <td width="72%" style="padding: 10px 12px; color: #1e293b;">{spec_val2}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            """
+        elif "②" in template_type:
+            body_section_html = f"""
+            {price_box_html}
+            <tr>
+                <td colspan="2" style="padding: 4px 24px 20px 24px; background-color: #ffffff;">
+                    <table width="100%" style="border-collapse: collapse; border: 2px solid #cbd5e1; font-size: 13.5px; text-align: center;">
+                        <tr bgcolor="#1e293b" style="color: #ffffff; font-weight: 800;">
+                            <td width="24%" style="padding: 11px 8px; border: 1px solid #334155;">비교 항목</td>
+                            <td width="36%" style="padding: 11px 8px; border: 1px solid #334155; background-color: #64748b;">😟 타사 일반 저가형</td>
+                            <td width="40%" style="padding: 11px 8px; border: 1px solid #334155; background-color: {main_color};">🏆 우리 스토어 정품</td>
+                        </tr>
+                        <tr>
+                            <td bgcolor="#f8fafc" style="padding: 12px 8px; font-weight: bold; color: #334155; border: 1px solid #cbd5e1;">{comp_criteria1}</td>
+                            <td style="padding: 12px 10px; color: #64748b; border: 1px solid #cbd5e1;">❌ {comp_bad1}</td>
+                            <td bgcolor="{sub_bg}" style="padding: 12px 10px; color: #111111; font-weight: 800; border: 1px solid #cbd5e1;">⭕ {comp_good1}</td>
+                        </tr>
+                        <tr>
+                            <td bgcolor="#f8fafc" style="padding: 12px 8px; font-weight: bold; color: #334155; border: 1px solid #cbd5e1;">{comp_criteria2}</td>
+                            <td style="padding: 12px 10px; color: #64748b; border: 1px solid #cbd5e1;">❌ {comp_bad2}</td>
+                            <td bgcolor="{sub_bg}" style="padding: 12px 10px; color: #111111; font-weight: 800; border: 1px solid #cbd5e1;">⭕ {comp_good2}</td>
+                        </tr>
+                        <tr>
+                            <td bgcolor="#f8fafc" style="padding: 12px 8px; font-weight: bold; color: #334155; border: 1px solid #cbd5e1;">{comp_criteria3}</td>
+                            <td style="padding: 12px 10px; color: #64748b; border: 1px solid #cbd5e1;">❌ {comp_bad3}</td>
+                            <td bgcolor="{sub_bg}" style="padding: 12px 10px; color: #111111; font-weight: 800; border: 1px solid #cbd5e1;">⭕ {comp_good3}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            """
+        elif "③" in template_type:
+            body_section_html = f"""
+            {price_box_html}
+            <tr>
+                <td colspan="2" style="padding: 4px 24px 18px 24px; background-color: #ffffff;">
+                    <div style="font-size: 14px; font-weight: 900; color: {main_color}; margin-bottom: 10px;">💬 실구매 고객님들의 100% 리얼 극찬 후기</div>
+                    <table width="100%" style="border-collapse: collapse; margin-bottom: 10px; background-color: #f8fafc; border-left: 4px solid {main_color}; border-radius: 6px;">
+                        <tr><td style="padding: 12px 16px;">
+                            <div style="font-size: 12px; font-weight: bold; color: #ca8a04; margin-bottom: 4px;">⭐⭐⭐⭐⭐ <span style="color:#64748b;">| {rev1_user}</span></div>
+                            <div style="font-size: 13.5px; color: #1e293b; line-height: 1.5;">"{rev1_text}"</div>
+                        </td></tr>
+                    </table>
+                    <table width="100%" style="border-collapse: collapse; margin-bottom: 10px; background-color: #f8fafc; border-left: 4px solid {main_color}; border-radius: 6px;">
+                        <tr><td style="padding: 12px 16px;">
+                            <div style="font-size: 12px; font-weight: bold; color: #ca8a04; margin-bottom: 4px;">⭐⭐⭐⭐⭐ <span style="color:#64748b;">| {rev2_user}</span></div>
+                            <div style="font-size: 13.5px; color: #1e293b; line-height: 1.5;">"{rev2_text}"</div>
+                        </td></tr>
+                    </table>
+                    <table width="100%" style="border-collapse: collapse; background-color: #f8fafc; border-left: 4px solid {main_color}; border-radius: 6px;">
+                        <tr><td style="padding: 12px 16px;">
+                            <div style="font-size: 12px; font-weight: bold; color: #ca8a04; margin-bottom: 4px;">⭐⭐⭐⭐⭐ <span style="color:#64748b;">| {rev3_user}</span></div>
+                            <div style="font-size: 13.5px; color: #1e293b; line-height: 1.5;">"{rev3_text}"</div>
+                        </td></tr>
+                    </table>
+                </td>
+            </tr>
+            """
+        elif "④" in template_type:
+            body_section_html = f"""
+            {price_box_html}
+            <tr>
+                <td colspan="2" style="padding: 4px 24px 18px 24px; background-color: #ffffff;">
+                    <table width="100%" style="border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <tr bgcolor="#f1f5f9">
+                            <td style="padding: 11px 16px; font-size: 14px; font-weight: 900; color: #0f172a; border-bottom: 1px solid #e2e8f0;">
+                                🙋‍♂️ 구매 전 가장 많이 묻는 질문 Q&A
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9;">
+                                <div style="font-size: 14px; font-weight: 800; color: {main_color}; margin-bottom: 4px;">Q1. {q1_text}</div>
+                                <div style="font-size: 13.5px; color: #334155; line-height: 1.5;">👉 <b>A.</b> {a1_text}</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9;">
+                                <div style="font-size: 14px; font-weight: 800; color: {main_color}; margin-bottom: 4px;">Q2. {q2_text}</div>
+                                <div style="font-size: 13.5px; color: #334155; line-height: 1.5;">👉 <b>A.</b> {a2_text}</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 14px 16px;">
+                                <div style="font-size: 14px; font-weight: 800; color: {main_color}; margin-bottom: 4px;">Q3. {q3_text}</div>
+                                <div style="font-size: 13.5px; color: #334155; line-height: 1.5;">👉 <b>A.</b> {a3_text}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            """
+        else:  # ⑤ 특가배너형
+            body_section_html = f"""
+            <tr>
+                <td colspan="2" style="padding: 16px 24px 8px 24px; background-color: #ffffff;">
+                    <table width="100%" style="border-collapse: collapse; background-color: #111827; color: #ffffff; border-radius: 10px; text-align: center;" bgcolor="#111827">
+                        <tr>
+                            <td style="padding: 18px 16px;">
+                                <div style="font-size: 18px; font-weight: 900; color: #facc15; margin-bottom: 6px;">{promo_headline}</div>
+                                <div style="font-size: 13.5px; color: #e5e7eb;">🎁 {coupon_text}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            {price_box_html}
+            <tr>
+                <td colspan="2" style="padding: 0px 24px 18px 24px; background-color: #ffffff;">
+                    <table width="100%" style="border-collapse: collapse; background-color: #fef2f2; border: 1px dashed #ef4444; border-radius: 8px; text-align: center;" bgcolor="#fef2f2">
+                        <tr>
+                            <td style="padding: 12px; font-size: 13.5px; font-weight: 800; color: #b91c1c;">
+                                ⏰ {stock_limit}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            """
 
         infographic_html = f"""
 <table width="100%" style="max-width: 620px; margin: 0 auto; border-collapse: collapse; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; border: 3px solid {main_color}; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
@@ -615,56 +905,7 @@ try:
         </td>
     </tr>
     {img_block}
-    <tr>
-        <td colspan="2" style="padding: 16px 24px; background-color: #ffffff;">
-            <table width="100%" style="border-collapse: collapse; background-color: {sub_bg}; border-radius: 10px; border: 1px solid {main_color}33;" bgcolor="{sub_bg}">
-                <tr>
-                    <td style="padding: 16px 20px; width: 65%;">
-                        <div style="font-size: 13px; color: #777777; text-decoration: line-through;">정상가 {orig_price:,}원</div>
-                        <div style="margin-top: 4px;">
-                            {discount_badge_html}
-                            <span style="font-size: 26px; font-weight: 900; color: #111111;">{s_price:,}원</span>
-                        </div>
-                    </td>
-                    <td align="right" style="padding: 16px 20px; width: 35%;">
-                        <span style="background-color: {main_color}; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 800; display: inline-block;">🚚 {ship_info}</span>
-                    </td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-    <tr>
-        <td colspan="2" style="padding: 4px 24px 16px 24px; background-color: #ffffff;">
-            <table width="100%" style="border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px;">
-                <tr bgcolor="#f8fafc">
-                    <td style="padding: 11px 16px; font-size: 14px; font-weight: 800; color: #1e293b; border-bottom: 1px solid #e5e7eb; background-color: #f8fafc;">
-                        📌 핵심 체크포인트 TOP 3
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding: 16px; font-size: 14.5px; color: #222222; line-height: 1.85; background-color: #ffffff;">
-                        <div style="margin-bottom: 4px;">✅ <b>POINT 1.</b> {feat1}</div>
-                        <div style="margin-bottom: 4px;">✅ <b>POINT 2.</b> {feat2}</div>
-                        <div>✅ <b>POINT 3.</b> {feat3}</div>
-                    </td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-    <tr>
-        <td colspan="2" style="padding: 0px 24px 18px 24px; background-color: #ffffff;">
-            <table width="100%" style="border-collapse: collapse; border: 1px solid #e5e7eb; font-size: 13px;">
-                <tr>
-                    <td width="28%" bgcolor="#f8fafc" style="padding: 10px 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;">{spec_label1}</td>
-                    <td width="72%" style="padding: 10px 12px; color: #1e293b; border-bottom: 1px solid #e5e7eb;">{spec_val1}</td>
-                </tr>
-                <tr>
-                    <td width="28%" bgcolor="#f8fafc" style="padding: 10px 12px; font-weight: bold; color: #475569; border-right: 1px solid #e5e7eb;">{spec_label2}</td>
-                    <td width="72%" style="padding: 10px 12px; color: #1e293b;">{spec_val2}</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
+    {body_section_html}
     <tr>
         <td colspan="2" align="center" style="padding: 6px 24px 24px 24px; background-color: #ffffff;">
             <a href="{s_url}" target="_blank" style="background-color: {main_color}; color: #ffffff; padding: 15px 36px; text-decoration: none; border-radius: 8px; font-weight: 900; font-size: 16px; display: inline-block;">
@@ -676,7 +917,7 @@ try:
 """
 
         with preview_col:
-            st.markdown("#### 👀 2. 실시간 프리뷰 & 원클릭 추출 (복사 / PNG 저장)")
+            st.markdown("#### 👀 실시간 프리뷰 & 원클릭 추출 (복사 / PNG 저장)")
 
             component_html = f"""
             <!DOCTYPE html>
@@ -685,66 +926,18 @@ try:
                 <meta charset="utf-8">
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
                 <style>
-                    body {{
-                        margin: 0;
-                        padding: 0;
-                        font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-                        background-color: transparent;
-                    }}
-                    .action-bar {{
-                        display: flex;
-                        flex-direction: column;
-                        gap: 10px;
-                        margin-bottom: 14px;
-                    }}
+                    body {{ margin: 0; padding: 0; font-family: 'Malgun Gothic', sans-serif; background-color: transparent; }}
+                    .action-bar {{ display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }}
                     .big-btn {{
-                        width: 100%;
-                        padding: 18px 20px;
-                        font-size: 18px;
-                        font-weight: 900;
-                        border-radius: 10px;
-                        cursor: pointer;
-                        border: none;
-                        transition: all 0.15s ease-in-out;
-                        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 8px;
+                        width: 100%; padding: 18px 20px; font-size: 18px; font-weight: 900;
+                        border-radius: 10px; cursor: pointer; border: none; transition: all 0.15s ease-in-out;
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.12); display: flex; align-items: center; justify-content: center; gap: 8px;
                     }}
-                    .big-btn:hover {{
-                        transform: translateY(-2px);
-                        box-shadow: 0 6px 12px rgba(0,0,0,0.18);
-                    }}
-                    .big-btn:active {{
-                        transform: translateY(0);
-                    }}
-                    .btn-png {{
-                        background-color: #111827;
-                        color: #ffffff;
-                        border: 2px solid #111827;
-                    }}
-                    .btn-copy {{
-                        background-color: {main_color};
-                        color: #ffffff;
-                    }}
-                    #status-msg {{
-                        text-align: center;
-                        font-weight: 800;
-                        font-size: 14.5px;
-                        padding: 10px;
-                        border-radius: 8px;
-                        margin-bottom: 12px;
-                        display: none;
-                    }}
-                    #capture-wrapper {{
-                        background-color: #ffffff;
-                        padding: 12px;
-                        border-radius: 14px;
-                        display: inline-block;
-                        width: 100%;
-                        box-sizing: border-box;
-                    }}
+                    .big-btn:hover {{ transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.18); }}
+                    .btn-png {{ background-color: #111827; color: #ffffff; border: 2px solid #111827; }}
+                    .btn-copy {{ background-color: {main_color}; color: #ffffff; }}
+                    #status-msg {{ text-align: center; font-weight: 800; font-size: 14.5px; padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none; }}
+                    #capture-wrapper {{ background-color: #ffffff; padding: 12px; border-radius: 14px; display: inline-block; width: 100%; box-sizing: border-box; }}
                 </style>
             </head>
             <body>
@@ -770,9 +963,7 @@ try:
                     msg.style.backgroundColor = bgColor;
                     msg.style.color = textColor;
                     msg.style.display = 'block';
-                    setTimeout(() => {{
-                        msg.style.display = 'none';
-                    }}, 4500);
+                    setTimeout(() => {{ msg.style.display = 'none'; }}, 4500);
                 }}
 
                 function copyInfographic() {{
@@ -817,14 +1008,18 @@ try:
             </body>
             </html>
             """
-            components.html(component_html, height=860, scrolling=True)
+            components.html(component_html, height=880, scrolling=True)
 
     # ==========================================
-    # TAB 3: 구글 시트 원본 데이터
+    # TAB 5: 구글 시트 원본 데이터 & 바로가기
     # ==========================================
-    with tab3:
-        st.subheader("📊 구글 시트 등록 상품 원본 데이터")
-        st.dataframe(df, use_container_width=True)
+    with tab_raw:
+        st.subheader("📊 구글 시트 원본 데이터 & 시트 열기")
+        st.markdown(
+            f"👉 **[여기를 클릭해 내 구글 시트(상품관리 및 수익장부) 바로 열기](https://docs.google.com/spreadsheets/d/{sheet_id}/edit)**"
+        )
+        display_raw = [c for c in df.columns if not c.endswith("_num") and c != "상품선택"]
+        st.dataframe(df[display_raw], use_container_width=True)
 
 except Exception as e:
     st.error(f"앱 실행 중 오류가 발생했습니다. 상세 에러: {e}")
