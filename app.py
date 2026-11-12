@@ -447,17 +447,17 @@ try:
 
     with st.sidebar:
         st.markdown("## 🛒 위탁판매 컨트롤 타워")
-        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 27대 기능 탑재)")
+        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 31대 기능 탑재)")
         st.markdown("---")
 
         main_menu = st.radio(
             "📂 작업할 워크스페이스를 선택하세요",
             [
-                "📅 1. 소싱 캘린더 & KC인증 판독",
+                "📅 1. 일일루틴·시즌·KC·사입전환",
                 "🚨 2. 품절·성적표·좀비상품 진단",
                 "📦 3. 발주·도서산간·송장·CS·리뷰",
                 "🎨 4. 마케팅·Top3기획전·후킹·UTM",
-                "💰 5. 수익장부·등급진단·세트·세금",
+                "💰 5. 장부·등급·옵션규정·자금·세금",
             ],
         )
 
@@ -473,7 +473,7 @@ try:
             st.cache_data.clear()
             st.rerun()
 
-    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (27대 기능 완전체)")
+    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (31대 기능 마스터 버전)")
     golden_events = [e for e in upcoming_list if e["d_day"] <= 38]
     if golden_events:
         ge = golden_events[0]
@@ -483,13 +483,39 @@ try:
         )
 
     # ==================================================================================
-    # MENU 1: 📅 소싱 캘린더 & KC인증 판독
+    # MENU 1: 📅 일일루틴·시즌·KC·사입전환 (일일루틴 체크리스트 + 시즌 달력 + KC인증 판독 + 소량사입 전환 ROI)
     # ==================================================================================
-    if main_menu == "📅 1. 소싱 캘린더 & KC인증 판독":
-        sub_s1, sub_s2 = st.tabs([
-            "📅 1. 연간 기념일 소싱 로드맵 & 월별 달력 (3~4주 전 알림)",
-            "🛡️ 2. KC인증·전파인증·식약처 필수 대상 품목 판독기",
+    if main_menu == "📅 1. 일일루틴·시즌·KC·사입전환":
+        sub_s0, sub_s1, sub_s2, sub_s3 = st.tabs([
+            "✅ 1. 하루 15분 사장님 일일 루틴 체크리스트",
+            "📅 2. 연간 기념일 소싱 로드맵 & 월별 달력",
+            "🛡️ 3. KC인증·전파인증·식약처 필수 판독기",
+            "📦 4. 위탁 ➡️ 소량 사입 전환 손익분기(ROI) 판독기",
         ])
+
+        with sub_s0:
+            st.subheader("✅ 하루 15분! 스마트스토어 & 블로그 위탁판매 일일 마감 루틴")
+            st.write("기능이 많아도 매일 아래 **6단계 순서대로 체크하며 15분만 투자**하면 품절 페널티 0건, 빠른 발주, 꾸준한 블로그 유입이 유지됩니다.")
+
+            rc1, rc2 = st.columns(2, gap="large")
+            with rc1:
+                st.markdown("#### ☀️ 오전 루틴 (출근 직후 5분 — 품절 방어 & 발주)")
+                chk1 = st.checkbox("1️⃣ [2번 메뉴] 전체 상품 도매처 품절·단종·가격인상 스캔 돌리기", value=False)
+                chk2 = st.checkbox("2️⃣ [3번 메뉴] 스마트스토어 신규 주문 엑셀 다운로드 ➡️ 도매처 발주 변환 (도서산간·진상고객 확인)", value=False)
+                chk3 = st.checkbox("3️⃣ [2번 메뉴] 품절 발생 시 스토어 '판매중지' 처리 & 블로그 죽은 링크 교체", value=False)
+
+            with rc2:
+                st.markdown("#### 🌙 오후/저녁 루틴 (퇴근 전 10분 — 송장·마케팅·장부)")
+                chk4 = st.checkbox("4️⃣ [3번 메뉴] 도매처 출고 송장번호 다운로드 ➡️ 스마트스토어 일괄 발송 처리", value=False)
+                chk5 = st.checkbox("5️⃣ [4번 메뉴] 시즌 추천 상품 인포그래픽 카드 + SEO 원고로 블로그/카페 1포스팅 업로드", value=False)
+                chk6 = st.checkbox("6️⃣ [3·5번 메뉴] 신규 리뷰 사장님 답글 달기 & 구글 시트 판매수량 업데이트", value=False)
+
+            done_cnt = sum([chk1, chk2, chk3, chk4, chk5, chk6])
+            prog_ratio = done_cnt / 6.0
+            st.markdown("---")
+            st.progress(prog_ratio, text=f"🔥 오늘의 위탁판매 대표님 루틴 달성률: {int(prog_ratio * 100)}% ({done_cnt} / 6 완료)")
+            if done_cnt == 6:
+                st.success("🎉 오늘 해야 할 핵심 운영·마케팅 루틴을 100% 완료하셨습니다! 편히 쉬셔도 됩니다.")
 
         with sub_s1:
             st.subheader("📅 연간 기념일 소싱 로드맵 & 월별 달력")
@@ -615,8 +641,55 @@ try:
                 use_container_width=True, hide_index=True
             )
 
+        with sub_s3:
+            st.subheader("📦 위탁판매 효자 상품 ➡️ '소량 사입(도매꾹·1688)' 전환 시점 손익분기(ROI) 판독기")
+            st.write(
+                "위탁판매로 월 20~30개 이상 꾸준히 팔리는 검증된 상품이 나왔다면, "
+                "**계속 비싼 위탁 단가로 발주하는 것보다 소량 사입(50~100개)으로 전환할 때 몇 개만 팔면 원금을 회수하는지** 계산합니다."
+            )
+
+            roi_c1, roi_c2, roi_c3 = st.columns(3)
+            with roi_c1:
+                cur_sell_p = st.number_input("현재 스토어 판매가 (원)", value=21900, step=500)
+                cur_drop_cost = st.number_input("현재 1개당 위탁 도매원가 (원)", value=12000, step=500)
+            with roi_c2:
+                bulk_unit_cost = st.number_input("소량 사입 시 1개당 공급단가 (원)", value=7500, step=500)
+                bulk_moq = st.number_input("사입 최소 주문 수량 (MOQ, 개)", value=50, step=10, min_value=1)
+            with roi_c3:
+                extra_pack_cost = st.number_input("직접 발송 시 개당 부자재·포장비 (원)", value=400, step=100)
+                est_monthly_sales = st.number_input("현재 월평균 판매 수량 (개)", value=25, step=5, min_value=1)
+
+            naver_f = int(round(cur_sell_p * 0.056))
+            drop_unit_profit = cur_sell_p - cur_drop_cost - naver_f
+            bulk_unit_profit = cur_sell_p - bulk_unit_cost - extra_pack_cost - naver_f
+
+            total_bulk_invest = bulk_unit_cost * bulk_moq
+            net_revenue_per_unit = cur_sell_p - extra_pack_cost - naver_f
+            bep_units = int((total_bulk_invest // net_revenue_per_unit) + 1) if net_revenue_per_unit > 0 else 999
+
+            monthly_drop_total = drop_unit_profit * est_monthly_sales
+            monthly_bulk_total = bulk_unit_profit * est_monthly_sales
+            monthly_gain = monthly_bulk_total - monthly_drop_total
+
+            r_col1, r_col2, r_col3 = st.columns(3)
+            r_col1.info(
+                f"📊 **개당 순수익 비교**\n\n"
+                f"- 위탁 유지 시: 개당 **{drop_unit_profit:,}원**\n"
+                f"- 사입 전환 시: 개당 **{bulk_unit_profit:,}원** (**+{bulk_unit_profit - drop_unit_profit:,}원** 상승!)"
+            )
+            r_col2.warning(
+                f"⚖️ **사입 투자금 & 원금 회수 손익분기점**\n\n"
+                f"- 초기 사입 투자금({bulk_moq}개): **{total_bulk_invest:,}원**\n"
+                f"- 딱 **{bep_units}개**만 팔면 투자 원금 100% 회수! (이후 {bulk_moq - bep_units}개는 전액 순수익)"
+            )
+            r_col3.success(
+                f"💰 **월 {est_monthly_sales}개 판매 시 추가 수익**\n\n"
+                f"- 위탁 월 순수익: {monthly_drop_total:,}원\n"
+                f"- 사입 월 순수익: **{monthly_bulk_total:,}원** (매월 **+{monthly_gain:,}원** 추가 수익!)"
+            )
+
     # ==================================================================================
-    # MENU 2: 🚨 품절·성적표·좀비상품 진단 (품절스캔 + 블로그역추적 + 경쟁사비교 + 도매처성적표 + 좀비상품처방전)
+    # MENU 2: 🚨 품절·성적표·좀비상품 진단
     # ==================================================================================
     elif main_menu == "🚨 2. 품절·성적표·좀비상품 진단":
         sub_m1, sub_m2, sub_m3, sub_m4, sub_m5 = st.tabs([
@@ -774,11 +847,6 @@ try:
 
         with sub_m5:
             st.subheader("🧟 좀비 상품(판매 부진 · 광고비 적자) 자동 진단 & 리뉴얼 처방전")
-            st.write(
-                "스마트스토어에 등록된 상품 중 **판매량이 저조하거나 광고비 대비 적자가 나는 좀비 상품**을 방치하면 스토어 전체의 노출 지수가 하락합니다. "
-                "상품별 상태에 따른 **맞춤형 회생 처방전**을 확인하세요."
-            )
-
             zombie_rows = []
             for idx, row in df.iterrows():
                 p_name = str(row.get("상품명", f"상품 {idx+1}"))
@@ -801,15 +869,11 @@ try:
                     rx = "1) 5번 메뉴의 '1+1 세트/무료배송 설계기'를 활용해 2개 묶음 옵션 추가로 객단가 2배 인상 권장"
                 else:
                     z_status = "🟢 건강 효자 상품 (유지·확장)"
-                    rx = "1) 품절 방어 최우선! 2) 블로그/카페에 '실구매 베스트 리뷰 모음 인포그래픽' 추가 발행으로 1위 굳히기"
+                    rx = "1) 품절 방어 최우선! 2) 1번 메뉴의 '소량 사입 전환 판독기'로 사입 전환 시 추가 수익 확인 권장"
 
                 zombie_rows.append({
-                    "진단 등급": z_status,
-                    "상품명": p_name,
-                    "누적 판매량": f"{qty}개",
-                    "개당 순마진": f"{unit_m:,}원",
-                    "누적 순수익": f"{net_p:,}원",
-                    "맞춤 리뉴얼 처방전 (Action Plan)": rx,
+                    "진단 등급": z_status, "상품명": p_name, "누적 판매량": f"{qty}개",
+                    "개당 순마진": f"{unit_m:,}원", "누적 순수익": f"{net_p:,}원", "맞춤 리뉴얼 처방전 (Action Plan)": rx,
                 })
             st.dataframe(pd.DataFrame(zombie_rows), use_container_width=True, hide_index=True)
 
@@ -1018,7 +1082,7 @@ try:
                 render_copy_box("🙂 2. [별점 3~4점 아쉬움 리뷰용] 피드백 수용 & 신뢰도 상승 답글", reply_3star, "rv3", "#2563eb", 190)
                 render_copy_box("🙇‍♂️ 3. [별점 1~2점 불만/불량 리뷰용] 다른 예비 구매자를 안심시키는 사과 답글", reply_1star, "rv1", "#dc2626", 195)
                 # ==================================================================================
-    # MENU 4: 🎨 마케팅·Top3기획전·후킹·UTM (5종인포 + Top3큐레이션 + 3초후킹브릿지 + 썸네일 + 공지배너 + SEO/지재권 + UTM)
+    # MENU 4: 🎨 마케팅·Top3기획전·후킹·UTM
     # ==================================================================================
     elif main_menu == "🎨 4. 마케팅·Top3기획전·후킹·UTM":
         sub_mk1, sub_mk_top3, sub_mk_hook, sub_mk2, sub_mk3, sub_mk4, sub_mk5 = st.tabs([
@@ -1306,13 +1370,8 @@ try:
                 """
                 components.html(component_html, height=880, scrolling=True)
 
-        # ------------------------------------------
-        # 신규 기능: 블로그·카페 '연관 상품 Top 3 큐레이션 기획전' 카드 생성기
-        # ------------------------------------------
         with sub_mk_top3:
             st.subheader("🏆 블로그·카페 '연관 상품 묶음 홍보(큐레이션 Top 3)' 기획전 카드 생성기")
-            st.write("블로그 글 하나에 상품 1개만 올리는 것보다 **시즌 추천템 BEST 3를 한 장의 비교 카드로 묶어 소개**하면 클릭률과 동시 구매율이 2배 이상 높아집니다.")
-
             t3_edit, t3_prev = st.columns([1.05, 1.25], gap="large")
             with t3_edit:
                 curation_title = st.text_input("🎉 기획전 메인 타이틀", value="🔥 올겨울 후회 없는 월동준비 필수템 BEST 3 총정리")
@@ -1416,16 +1475,8 @@ try:
                 """
                 components.html(t3_comp, height=780, scrolling=True)
 
-        # ------------------------------------------
-        # 신규 기능: 도매처 상세페이지 '통이미지' 사이 3초 후킹 설득 문구 삽입기
-        # ------------------------------------------
         with sub_mk_hook:
             st.subheader("⚡ 도매처 상세페이지 '통이미지' 3초 후킹 설득 브릿지 생성기")
-            st.write(
-                "도매처가 주는 똑같은 상세페이지 사진만 올려두면 고객이 스크롤만 내리다 나갑니다. "
-                "**상세페이지 맨 위(도입부)와 사진 중간에 이 '설득 브릿지 카드(PNG 또는 표)'를 끼워 넣으면 구매 전환율이 2배 이상 상승**합니다!"
-            )
-
             hk1, hk2 = st.columns([1.0, 1.3], gap="large")
             with hk1:
                 hk_problem = st.text_input("😟 고객이 겪던 기존 불편함 (문제 제기)", value="비슷해 보이는 저가형 샀다가 하루 만에 고장 나고 후회하셨나요?")
@@ -1690,15 +1741,15 @@ try:
                 st.info("💡 위 추적 URL을 복사해 [인포그래픽 제작] 탭의 구매 링크 칸에 넣으면 어떤 블로그 글에서 결제가 일어났는지 스마트스토어 통계에 기록됩니다!")
 
     # ==================================================================================
-    # MENU 5: 💰 수익장부·등급진단·세트·세금 (장부 + 월별기록 + 등급시뮬레이터 + 1+1세트 + 마진/ROAS/세금 + 시트원본)
+    # MENU 5: 💰 장부·등급·옵션규정·자금·세금 (장부 + 월별기록 + 등급진단 + 1+1세트&옵션규정 + 마진/ROAS/자금/세금 + 시트원본)
     # ==================================================================================
-    elif main_menu == "💰 5. 수익장부·등급진단·세트·세금":
+    elif main_menu == "💰 5. 장부·등급·옵션규정·자금·세금":
         sub_f1, sub_f2, sub_f_tier, sub_f3, sub_f4, sub_f5 = st.tabs([
             "💎 1. 실시간 수익장부 & 랭킹",
             "🗓️ 2. 월별 정산 마감 & 그래프",
-            "👑 3. 스마트스토어 등급 상승(파워/빅파워) 진단기",
-            "🎁 4. 1+1 세트 & 무료배송 마진 설계",
-            "🎯 5. 단품 마진 · ROAS · 세금 계산기",
+            "👑 3. 스토어 등급 상승 진단기",
+            "🎁 4. 1+1 세트 & 옵션추가금 규정 계산기",
+            "🏦 5. 마진 · ROAS · 운전자금 · 세금 계산기",
             "📊 6. 구글 시트 원본 보기",
         ])
 
@@ -1862,16 +1913,8 @@ try:
                         """
                     components.html(f"<!DOCTYPE html><html><body style='margin:0;font-family:Malgun Gothic,sans-serif;'><div style='background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;'><div style='font-size:12px;color:#94a3b8;margin-bottom:10px;'>🟦 파란 바: 월 총매출액 | 🟩 초록 바: 월 최종 순수익</div>{m_bars_html}</div></body></html>", height=max(180, len(df_m_valid) * 62 + 50), scrolling=True)
 
-        # ------------------------------------------
-        # 신규 기능: 스마트스토어 등급 상승(씨앗 -> 파워 -> 빅파워) 목표 달성 시뮬레이터
-        # ------------------------------------------
         with sub_f_tier:
             st.subheader("👑 스마트스토어 등급 상승 (씨앗 ➡️ 새싹 ➡️ 파워 ➡️ 빅파워) 달성 시뮬레이터")
-            st.write(
-                "네이버 스마트스토어는 **최근 3개월 누적 판매 건수와 매출액**으로 매월 2일 등급이 산정됩니다. "
-                "**'파워' 등급 이상을 달성하면 상품에 파워 배지가 붙어 상위노출과 클릭률이 비약적으로 상승**합니다!"
-            )
-
             tr1, tr2, tr3 = st.columns(3)
             with tr1:
                 curr_3m_cnt = st.number_input("최근 3개월 누적 판매 건수 (건)", value=int(total_qty_sold * 2), step=10)
@@ -1880,7 +1923,6 @@ try:
             with tr3:
                 remain_days = st.slider("이번 달 등급 심사 마감까지 남은 일수 (일)", min_value=1, max_value=90, value=20)
 
-            # 스마트스토어 공식 등급 기준 (최근 3개월 합산)
             tiers = [
                 ("🌱 새싹 등급", 100, 2000000),
                 ("⚡ 파워 등급 (1차 핵심 목표!)", 300, 8000000),
@@ -1907,13 +1949,10 @@ try:
                     if need_cnt == 0 and need_rev == 0:
                         st.success(f"🎉 축하합니다! 이미 **{t_name}** 달성 조건을 모두 충족하셨습니다!")
                     else:
-                        st.info(
-                            f"🎯 **남은 목표:** 건수 **{need_cnt:,}건** / 매출 **{need_rev:,}원** 추가 필요 "
-                            f"👉 앞으로 {remain_days}일간 **하루 평균 {daily_need_cnt:.1f}건 ({daily_need_rev:,}원/일)** 판매하면 등급이 상승합니다!"
-                        )
+                        st.info(f"🎯 **남은 목표:** 건수 **{need_cnt:,}건** / 매출 **{need_rev:,}원** 추가 필요 👉 앞으로 {remain_days}일간 **하루 평균 {daily_need_cnt:.1f}건 ({daily_need_rev:,}원/일)** 판매하면 달성!")
 
         with sub_f3:
-            st.subheader("🎁 객단가 2배 상승! 1+1(2개 묶음) & 무료배송 전환 마진 비교 설계기")
+            st.subheader("🎁 1+1 세트 구성 마진 설계기 & 🚨 스마트스토어 '옵션 추가금 어뷰징' 페널티 방지 계산기")
             bd1, bd2, bd3, bd4 = st.columns(4)
             with bd1:
                 b_unit_w = st.number_input("1개당 도매원가 (원)", value=8900, step=500)
@@ -1940,6 +1979,39 @@ try:
             bc1.info(f"📦 **단품 1개 판매 시 (유료배송)**\n\n- 고객 결제액: {b_unit_s:,}원 (+배송비 {b_ship_cost:,}원)\n- **내 통장 순수익: {single_net:,}원**")
             bc2.success(f"🔥 **[강력추천] 2개 세트 ({b_bundle_disc:,}원 할인 + 무료배송)**\n\n- 고객 결제액: **{bundle2_pay:,}원 (무료배송!)**\n- **내 통장 순수익: {bundle2_net:,}원** (단품 대비 **+{bundle2_net - single_net:,}원** 이득!)")
             bc3.warning(f"👑 **3개 패밀리 세트 ({b_bundle_disc*2:,}원 할인 + 무료배송)**\n\n- 고객 결제액: **{bundle3_pay:,}원 (무료배송!)**\n- **내 통장 순수익: {bundle3_net:,}원** (단품 대비 **+{bundle3_net - single_net:,}원** 이득!)")
+
+            st.markdown("---")
+            st.markdown("#### 🚨 스마트스토어 '옵션 추가금 한도(최저가 어뷰징 방지)' 규정 계산기")
+            st.caption("네이버 쇼핑은 대표 기본가를 싸게 걸고 옵션 추가금을 과도하게 높이는 행위를 어뷰징으로 간주해 노출을 차단합니다. 아래 합법 한도 내에서만 옵션가를 세팅하세요!")
+
+            opt_c1, opt_c2 = st.columns([1.0, 1.4])
+            with opt_c1:
+                base_rep_price = st.number_input("스토어 대표 기본 판매가 (할인 적용 후 실판매가, 원)", value=int(b_unit_s), step=500)
+
+            # 네이버 스마트스토어 옵션가 공식 규정:
+            # 1) 기본가 2,000원 미만: 옵션 추가금 0원 ~ +100% 이내
+            # 2) 기본가 2,000원 ~ 10,000원 미만: -50% ~ +100% 이내
+            # 3) 기본가 10,000원 이상: -50% ~ +50% 이내
+            if base_rep_price < 2000:
+                min_opt_diff = 0
+                max_opt_diff = base_rep_price
+                rule_desc = "대표가 2,000원 미만 구간: 마이너스(-) 옵션 불가, 추가금은 최대 +100%까지만 허용"
+            elif base_rep_price < 10000:
+                min_opt_diff = -int(base_rep_price * 0.5)
+                max_opt_diff = base_rep_price
+                rule_desc = "대표가 2,000원 ~ 10,000원 미만 구간: 옵션가 -50% ~ +100% 이내 허용"
+            else:
+                min_opt_diff = -int(base_rep_price * 0.5)
+                max_opt_diff = int(base_rep_price * 0.5)
+                rule_desc = "대표가 10,000원 이상 구간: 옵션 추가금은 최대 +50%까지만 허용! (초과 시 등록 불가/페널티)"
+
+            with opt_c2:
+                st.warning(
+                    f"📏 **[{base_rep_price:,}원] 상품의 합법 옵션 추가금 허용 범위 ({rule_desc})**\n\n"
+                    f"- **최소 옵션 차감 한도:** `{min_opt_diff:,}원` (옵션 실결제가 최소 **{base_rep_price + min_opt_diff:,}원**)\n"
+                    f"- **최대 옵션 추가금 한도:** **`+{max_opt_diff:,}원`** (옵션 실결제가 최대 **{base_rep_price + max_opt_diff:,}원**까지만 구성 가능!)\n"
+                    f"- 💡 1+1 세트를 옵션에 넣을 때 추가금이 `+{max_opt_diff:,}원`을 넘어가면 옵션 대신 **'추가상품'** 탭에 넣거나 별도 묶음 상품으로 등록하세요!"
+                )
 
         with sub_f4:
             st.markdown("#### 🧮 1. 목표 마진 & 스토어 쿠폰 할인가 역산 시뮬레이터")
@@ -1984,7 +2056,27 @@ try:
             rc3.metric("✅ 수익 확보 권장 입찰가", f"{rec_cpc:,}원", "순마진의 35% 이상 보존 입찰가")
 
             st.markdown("---")
-            st.markdown("#### 🏦 3. 간이과세자 / 일반과세자 예상 부가세 & 세금 적립금 계산기")
+            st.markdown("#### 💳 3. 위탁판매 '선결제 운전자금(돈 묶임 방지)' & 캐시플로우 시뮬레이터")
+            st.caption("고객 결제 대금이 네이버에서 정산되기 전, 도매처에 내 돈(또는 카드)으로 먼저 발주해야 하므로 주문 폭발 시 필요한 최소 회전 자금을 계산합니다.")
+            cf1, cf2, cf3 = st.columns(3)
+            with cf1:
+                daily_avg_orders = st.number_input("하루 평균 예상 주문 건수 (건/일)", value=10, step=5, min_value=1)
+            with cf2:
+                avg_wholesale_unit = st.number_input("주문 1건당 평균 도매 발주원가+택배비 (원)", value=15000, step=1000)
+            with cf3:
+                settle_cycle_days = st.slider("네이버 정산 입금까지 걸리는 평균 소요일 (빠른정산 3일 / 일반정산 8~10일)", min_value=2, max_value=15, value=8)
+
+            daily_outflow = daily_avg_orders * avg_wholesale_unit
+            required_working_capital = daily_outflow * settle_cycle_days
+            safety_capital = int(required_working_capital * 1.3)
+
+            cfc1, cfc2, cfc3 = st.columns(3)
+            cfc1.metric("💸 하루 도매처 선결제 발주액", f"{daily_outflow:,}원 / 일")
+            cfc2.metric(f"⏳ 정산 전 묶이는 돈 ({settle_cycle_days}일 기준)", f"{required_working_capital:,}원")
+            cfc3.metric("🛡️ 권장 안전 운전자금 (여유분 +30%)", f"{safety_capital:,}원", "통장 잔고 또는 사업자 카드 한도 권장액")
+
+            st.markdown("---")
+            st.markdown("#### 🏦 4. 간이과세자 / 일반과세자 예상 부가세 & 세금 적립금 계산기")
             tx1, tx2, tx3 = st.columns(3)
             with tx1:
                 tax_type = st.radio("사업자 과세 유형 선택", ["간이과세자 (소매업 부가가치율 15% 적용)", "일반과세자 (매출세액 10% - 매입세액 10%)"])
