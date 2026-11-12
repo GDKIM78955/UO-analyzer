@@ -1,25 +1,125 @@
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 from bs4 import BeautifulSoup
 import urllib3
+import re
+from datetime import datetime, timedelta, timezone
+import calendar
 
-# SSL 경고 무시 (일부 도매 사이트 접속 오류 방지)
+# SSL 보안 경고 무시 (일부 도매 사이트 크롤링 오류 방지)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 st.set_page_config(page_title="스마트스토어 위탁판매 매니저", layout="wide")
 
-st.title("🛒 스마트스토어 위탁판매 & 블로그 마켓 통합 관리")
+# 한국 시간(KST) 기준 오늘 날짜 계산
+KST = timezone(timedelta(hours=9))
+today = datetime.now(KST).date()
+
+st.title("🛒 스마트스토어 위탁판매 & 시즌 소싱 통합 매니저")
 st.write(
-    "구글 시트에 등록된 위탁 상품의 **도매처 품절/단종 여부를 실시간 체크**하고, "
-    "**마진 계산 및 블로그/카페 홍보용 HTML 카드**를 자동으로 생성합니다."
+    f"📅 **오늘 날짜: {today.strftime('%Y년 %m월 %d일')}** | "
+    "다가오는 쇼핑 기념일(3~4주 전) 소싱 알림, 도매처 품절 스캔, 블로그 인포그래픽 제작(복사 & PNG 저장)을 한곳에서 관리합니다."
 )
 
 # ==========================================
-# 1. 구글 시트 연동 설정 (본인의 상품 관리 시트 ID와 gid로 변경하세요)
+# 1. 대한민국 이커머스 핵심 기념일 & 시즌 소싱 데이터베이스
 # ==========================================
-sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"  # 새 시트 사용 시 변경
-gid = "0"  # 상품 목록이 있는 탭의 gid로 변경
+SEASONAL_EVENTS = [
+    {"month": 1, "day": 1, "name": "신정 / 새해 다짐 시즌", "items": "다이어리, 플래너, 홈트레이닝 용품, 독서대, 영양제 케이스", "keywords": "새해선물, 갓생템, 다이어리꾸미기, 홈트기구"},
+    {"month": 1, "day": 25, "name": "설날 명절 선물 대목", "items": "건강기능식품, 과일/한우 선물세트 포장재, 용돈봉투, 효도 안마기, 차량용 거치대", "keywords": "설날선물세트, 부모님명절선물, 센스있는용돈봉투"},
+    {"month": 2, "day": 14, "name": "발렌타인데이 / 졸업·입학식", "items": "초콜릿 DIY 키트, 남성 지갑/벨트, 꽃다발 비누꽃, 입학 백팩, 학용품 세트", "keywords": "발렌타인데이선물, 남자친구선물, 졸업식꽃다발, 신학기책가방"},
+    {"month": 3, "day": 2, "name": "신학기 개학 / 봄맞이 대청소", "items": "어린이 네임스티커, 수저통, 자취방 수납함, 침구 정리함, 먼지떨이/청소용품", "keywords": "어린이집준비물, 자취방수납, 봄맞이인테리어"},
+    {"month": 3, "day": 14, "name": "화이트데이", "items": "사탕/디저트 선물상자, 쥬얼리 보관함, 여성 파우치, 무드등, 향수 공병", "keywords": "화이트데이선물, 여자친구선물추천, 감성무드등"},
+    {"month": 4, "day": 5, "name": "본격 봄 캠핑 & 나들이·피크닉 오픈", "items": "피크닉 매트, 감성 우드 롤테이블, 캠핑 의자, 보냉백, 차량용 피크닉 용품", "keywords": "감성캠핑용품, 한강피크닉세트, 방수피크닉매트"},
+    {"month": 5, "day": 5, "name": "어린이날 (가정의 달 빅시즌)", "items": "완구/장난감, 보드게임, 어린이 킥보드, 역할놀이 세트, 아동용 카메라", "keywords": "어린이날선물추천, 조카선물, 유아장난감"},
+    {"month": 5, "day": 8, "name": "어버이날 / 스승의날 (가정의 달 최고 대목)", "items": "카네이션 비누꽃/용돈박스, 손목/어깨 마사지기, 건강차 세트, 감사패/토퍼", "keywords": "어버이날용돈박스, 부모님선물추천, 스승의날선물"},
+    {"month": 5, "day": 21, "name": "부부의날 / 성년의날", "items": "커플 잠옷, 커플 머그컵, 장미꽃 인테리어 소품, 미니 향수, 와인잔 세트", "keywords": "부부의날선물, 성년의날선물, 커플아이템"},
+    {"month": 6, "day": 15, "name": "초여름 & 장마철 사전 대비", "items": "초경량 양산/우산, 제습제, 레인부츠, 신발 건조기, 손선풍기, 쿨매트", "keywords": "장마철필수템, 자외선차단양산, 휴대용선풍기, 냉감패드"},
+    {"month": 7, "day": 20, "name": "여름 휴가철 / 물놀이·바캉스 피크", "items": "방수팩, 구명조끼, 대형 튜브, 아쿠아슈즈, 비치타월, 캐리어 파우치, 모기퇴치기", "keywords": "물놀이용품, 해외여행준비물, 캐리어정리파우치"},
+    {"month": 9, "day": 15, "name": "가을 캠핑 오픈 & 추석 명절 대목", "items": "명절 선물세트, 용돈박스, 한복 소품, 캠핑 화로대, 캠핑 랜턴, 침낭", "keywords": "추석선물추천, 가을캠핑용품, 감성랜턴, 불멍화로대"},
+    {"month": 10, "day": 31, "name": "할로윈 데이 & 가을 단풍 나들이", "items": "어린이 코스튬 의상, 파티 풍선/가랜드, 호박 바구니, 등산 스틱, 보온병", "keywords": "할로윈코스튬, 어린이집할로윈, 홈파티용품, 등산용품"},
+    {"month": 11, "day": 11, "name": "빼빼로데이 / 수능 응원 선물", "items": "빼빼로 포장 키트, 합격 엿/초콜릿 상자, 수험생 방석, 보온 도시락, 무릎담요", "keywords": "빼빼로데이포장, 수능응원선물, 수험생필수템"},
+    {"month": 11, "day": 25, "name": "첫눈 & 겨울 한파 월동준비 시작", "items": "충전식 손난로, 발난로, 온수매트, 방풍 비닐, 가습기, 차량용 성에제거기", "keywords": "겨울필수템, 사무실발난로, 휴대용손난로, 대용량가습기"},
+    {"month": 12, "day": 25, "name": "크리스마스 & 연말 홈파티 대목", "items": "크리스마스 미니 트리, LED 전구, 오너먼트, 산타 양말, 와인 오프너, 파티 테이블보", "keywords": "크리스마스트리세트, 연말홈파티소품, 크리스마스선물"},
+]
+
+
+def get_upcoming_events(ref_date):
+    upcoming = []
+    for ev in SEASONAL_EVENTS:
+        # 올해 날짜 계산 (이미 지났으면 내년 날짜로 계산)
+        try_date = datetime(ref_date.year, ev["month"], ev["day"]).date()
+        if try_date < ref_date:
+            try_date = datetime(ref_date.year + 1, ev["month"], ev["day"]).date()
+
+        d_day = (try_date - ref_date).days
+        prep_start = try_date - timedelta(days=28)  # 4주 전 소싱 시작 권장일
+        prep_end = try_date - timedelta(days=21)    # 3주 전 등록 마감 권장일
+
+        if d_day <= 7:
+            action_status = "🔥 [막바지 당일발송 피크] 지금 즉시 재고/품절 집중 관리!"
+            urgency = "high"
+        elif 14 <= d_day <= 35:
+            action_status = "🚨 [황금 소싱 타이밍! (3~4주 전)] 지금 바로 상품 등록 & 블로그 포스팅하세요!"
+            urgency = "golden"
+        elif 7 < d_day < 14:
+            action_status = "⚡ [집중 홍보 주간 (1~2주 전)] 블로그/카페 인포그래픽 홍보글을 집중 업로드하세요!"
+            urgency = "medium"
+        else:
+            action_status = f"⏳ 사전 준비 대기 (권장 소싱 시작일: {prep_start.strftime('%m월 %d일')}부터)"
+            urgency = "normal"
+
+        upcoming.append({
+            "event_date": try_date,
+            "d_day": d_day,
+            "name": ev["name"],
+            "items": ev["items"],
+            "keywords": ev["keywords"],
+            "prep_window": f"{prep_start.strftime('%m/%d')} ~ {prep_end.strftime('%m/%d')}",
+            "action_status": action_status,
+            "urgency": urgency,
+            "month": ev["month"],
+            "day": ev["day"],
+        })
+
+    return sorted(upcoming, key=lambda x: x["d_day"])
+
+
+upcoming_list = get_upcoming_events(today)
+
+# ==========================================
+# 상단 고정: 3~4주 전 소싱 골든타임 자동 알림 배너
+# ==========================================
+golden_events = [e for e in upcoming_list if e["d_day"] <= 42]
+if golden_events:
+    with st.container(border=True):
+        st.markdown("### 🔔 [자동 소싱 레이더] 지금 즉시 판매 준비해야 할 시즌/기념일 알림")
+        st.caption("스마트스토어 상위노출과 블로그 검색 반영에는 약 3~4주가 걸립니다. 아래 일정을 보고 미리 상품을 등록하세요!")
+        for ge in golden_events[:3]:
+            if ge["urgency"] == "golden":
+                st.error(
+                    f"**🎯 D-{ge['d_day']} | {ge['name']} ({ge['event_date'].strftime('%m월 %d일')}) — 지금이 3~4주 전 황금 소싱 타이밍입니다!**\n\n"
+                    f"- **📦 추천 소싱 상품군:** {ge['items']}\n"
+                    f"- **🔑 블로그/스토어 핵심 키워드:** `{ge['keywords']}`"
+                )
+            elif ge["urgency"] in ("medium", "high"):
+                st.warning(
+                    f"**⚡ D-{ge['d_day']} | {ge['name']} ({ge['event_date'].strftime('%m월 %d일')}) — {ge['action_status']}**\n\n"
+                    f"- **📦 주력 판매 상품군:** {ge['items']} | **🔑 추천 키워드:** `{ge['keywords']}`"
+                )
+            else:
+                st.info(
+                    f"**📅 D-{ge['d_day']} | {ge['name']} ({ge['event_date'].strftime('%m월 %d일')})** — 권장 소싱 시작일: `{ge['prep_window']}`\n\n"
+                    f"- **📦 미리 봐둘 상품군:** {ge['items']}"
+                )
+
+# ==========================================
+# 2. 구글 시트 연동 설정 (본인의 시트 ID와 gid로 변경 가능)
+# ==========================================
+sheet_id = "1-b-QusmoSnsvMhToNFe1B1IK7dJUKjjANs89y5ZekAQ"
+gid = "0"
 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
 
@@ -31,7 +131,7 @@ def load_data(url):
 
 
 # ==========================================
-# 2. 도매처 링크 생존 & 품절 감지 함수
+# 3. 도매처 링크 생존 & 품절 감지 함수
 # ==========================================
 def check_wholesale_status(url):
     if not url or pd.isna(url) or not str(url).startswith("http"):
@@ -45,7 +145,6 @@ def check_wholesale_status(url):
         "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
     }
 
-    # 도매 사이트에서 품절/종료 시 자주 뜨는 키워드 목록
     sold_out_keywords = [
         "품절",
         "일시품절",
@@ -57,6 +156,7 @@ def check_wholesale_status(url):
         "삭제된 상품",
         "존재하지 않는 상품",
         "현재 판매중인 상품이 아닙니다",
+        "판매가 종료",
         "sold out",
         "out of stock",
     ]
@@ -64,100 +164,190 @@ def check_wholesale_status(url):
     try:
         resp = requests.get(str(url), headers=headers, timeout=8, verify=False)
         if resp.status_code == 404:
-            return "🔴 링크 삭제 (404)", "페이지가 사라졌습니다. 즉시 스토어 판매중지 필요!"
+            return "🔴 링크 삭제 (404)", "페이지가 사라졌습니다. 즉시 스토어 품절 처리 필요!"
         elif resp.status_code != 200:
-            return f"🟡 접속 확인 필요 ({resp.status_code})", "사이트 보안 또는 일시적 오류 (수동 확인 권장)"
+            return f"🟡 접속 확인 필요 ({resp.status_code})", "사이트 보안 또는 일시적 오류 (직접 클릭해 확인 권장)"
 
         soup = BeautifulSoup(resp.text, "html.parser")
-        # 스크립트나 스타일 태그 제거 후 실제 화면 텍스트만 추출
         for script in soup(["script", "style"]):
             script.decompose()
         page_text = soup.get_text(separator=" ").lower()
 
         detected = [kw for kw in sold_out_keywords if kw in page_text]
         if detected:
-            return "🔴 품절/종료 의심", f"감지된 키워드: {', '.join(detected[:3])}"
+            return "🔴 품절/종료 의심", f"감지된 단어: {', '.join(detected[:3])}"
 
         return "🟢 정상 판매중", "특이사항 없음 (발주 가능)"
 
     except Exception as e:
-        return "🟡 연결 시간 초과/오류", f"수동 확인 필요 ({type(e).__name__})"
+        return "🟡 연결 지연/오류", f"수동 확인 필요 ({type(e).__name__})"
 
 
 # ==========================================
-# 3. 메인 화면 구성
+# 4. 데이터 로드 및 4대 탭 구성
 # ==========================================
 try:
-    with st.spinner("구글 시트에서 상품 데이터를 불러오는 중입니다..."):
+    with st.spinner("구글 시트 데이터를 확인하는 중입니다..."):
         try:
             df = load_data(csv_url)
         except Exception:
             df = pd.DataFrame()
 
-    # 시트에 아직 상품 컬럼이 없을 경우(기존 축구 시트 상태일 경우) 안내 및 샘플 데이터 제공
     required_cols = ["상품명", "도매처링크", "도매원가", "판매가"]
     if df.empty or not all(col in df.columns for col in required_cols):
-        st.warning(
-            "💡 현재 연결된 구글 시트에 위탁판매용 컬럼(`상품명`, `도매처링크`, `도매원가`, `판매가`)이 없습니다. "
-            "아래 샘플 데이터로 화면을 미리 테스트해 보세요!"
-        )
         df = pd.DataFrame([
             {
-                "상품명": "[샘플] 캠핑용 접이식 우드 롤테이블",
+                "상품명": "캠핑용 초경량 감성 우드 롤테이블",
                 "도매처명": "도매꾹",
                 "도매처링크": "https://domeggook.com/",
                 "스마트스토어링크": "https://smartstore.naver.com/",
-                "도매원가": 25000,
-                "판매가": 38900,
+                "도매원가": 16500,
+                "판매가": 28900,
                 "배송비": 3000,
                 "블로그홍보링크": "https://blog.naver.com/",
             },
             {
-                "상품명": "[샘플] 무선 미니 핸디 청소기",
+                "상품명": "차량용 무선 초강력 미니 청소기",
                 "도매처명": "오너클랜",
                 "도매처링크": "https://ownerclan.com/",
                 "스마트스토어링크": "https://smartstore.naver.com/",
                 "도매원가": 12000,
-                "판매가": 19800,
+                "판매가": 21900,
                 "배송비": 3000,
                 "블로그홍보링크": "https://cafe.naver.com/",
             },
         ])
 
-    tab1, tab2, tab3 = st.tabs([
-        "🚨 도매처 품절/단종 일괄 점검",
-        "🧮 개별 상품 마진 & 블로그 홍보 카드",
-        "📊 구글 시트 원본 데이터",
+    tab_cal, tab1, tab2, tab3 = st.tabs([
+        "📅 1. 시즌/기념일 소싱 캘린더 (3~4주 전 알림)",
+        "🚨 2. 도매처 품절/단종 일괄 스캔",
+        "🎨 3. 인포그래픽 카드 제작 (복사 & PNG 저장)",
+        "📊 4. 구글 시트 원본 데이터",
     ])
 
-    # ------------------------------------------
-    # TAB 1: 도매처 품절/단종 일괄 점검 (주문 들어왔을 때 or 매일 아침 클릭)
-    # ------------------------------------------
+    # ==========================================
+    # TAB 0 (신규): 시즌/기념일 소싱 캘린더 & 3~4주 전 준비 가이드
+    # ==========================================
+    with tab_cal:
+        st.subheader("📅 연간 기념일 소싱 로드맵 & 월별 달력")
+        st.write(
+            "위탁판매는 **기념일 3~4주 전에 상품을 소싱해 스토어에 등록하고 블로그/카페에 홍보글을 올려야** "
+            "대목 당일에 검색 상위노출로 주문이 터집니다."
+        )
+
+        col_cal_left, col_cal_right = st.columns([1.0, 1.4], gap="large")
+
+        with col_cal_left:
+            st.markdown("#### 🗓️ 월별 기념일 & 소싱 달력 보기")
+            sel_year = st.selectbox("연도 선택", [today.year, today.year + 1], index=0)
+            sel_month = st.selectbox("월 선택 (달력 확인)", list(range(1, 13)), index=today.month - 1, format_func=lambda x: f"{x}월")
+
+            # 선택한 월의 기념일 매핑
+            month_events = {e["day"]: e["name"] for e in SEASONAL_EVENTS if e["month"] == sel_month}
+            # 선택한 월에 '3~4주 전 소싱 시작일'이 걸려있는 다음 달 기념일 매핑
+            prep_alerts_in_month = []
+            for e in SEASONAL_EVENTS:
+                ev_dt = datetime(sel_year, e["month"], e["day"]).date()
+                prep_dt = ev_dt - timedelta(days=25)  # 약 3.5주 전
+                if prep_dt.month == sel_month:
+                    prep_alerts_in_month.append((prep_dt.day, e["name"], f"{e['month']}/{e['day']}", e["items"]))
+
+            # HTML 달력 렌더링
+            cal_matrix = calendar.monthcalendar(sel_year, sel_month)
+            cal_html = f"""
+            <table width="100%" style="border-collapse: collapse; text-align: center; font-family: sans-serif; border: 1px solid #cbd5e1;">
+                <tr bgcolor="#1e293b" style="color: white; font-size: 13px;">
+                    <th style="padding: 8px; border: 1px solid #334155;">월</th>
+                    <th style="padding: 8px; border: 1px solid #334155;">화</th>
+                    <th style="padding: 8px; border: 1px solid #334155;">수</th>
+                    <th style="padding: 8px; border: 1px solid #334155;">목</th>
+                    <th style="padding: 8px; border: 1px solid #334155;">금</th>
+                    <th style="padding: 8px; border: 1px solid #334155; color: #93c5fd;">토</th>
+                    <th style="padding: 8px; border: 1px solid #334155; color: #fca5a5;">일</th>
+                </tr>
+            """
+            for week in cal_matrix:
+                cal_html += "<tr>"
+                for idx_day, d in enumerate(week):
+                    if d == 0:
+                        cal_html += '<td style="padding: 10px; border: 1px solid #e2e8f0; background-color: #f8fafc;"></td>'
+                    else:
+                        is_today = (sel_year == today.year and sel_month == today.month and d == today.day)
+                        has_ev = d in month_events
+                        has_prep = any(p[0] == d for p in prep_alerts_in_month)
+
+                        bg = "#dcfce7" if is_today else ("#fee2e2" if has_ev else ("#fef3c7" if has_prep else "#ffffff"))
+                        badge = ""
+                        if is_today:
+                            badge += "<div style='font-size:10px; color:#166534; font-weight:bold;'>오늘</div>"
+                        if has_ev:
+                            badge += f"<div style='font-size:10px; color:#dc2626; font-weight:bold;'>🎉기념일</div>"
+                        if has_prep:
+                            badge += f"<div style='font-size:10px; color:#b45309; font-weight:bold;'>🚨소싱시작</div>"
+
+                        cal_html += f"""
+                        <td style="padding: 8px 4px; border: 1px solid #e2e8f0; background-color: {bg}; vertical-align: top; height: 55px;">
+                            <div style="font-size: 13px; font-weight: bold; color: #1e293b;">{d}</div>
+                            {badge}
+                        </td>
+                        """
+                cal_html += "</tr>"
+            cal_html += "</table>"
+            st.markdown(cal_html, unsafe_allow_html=True)
+            st.caption("🟥 빨간칸: 해당 월 기념일 당일 | 🟨 노란칸: 다음 대목 3~4주 전 소싱 시작일 | 🟩 초록칸: 오늘")
+
+            if prep_alerts_in_month:
+                st.markdown(f"##### 🚨 {sel_month}월에 미리 소싱 시작해야 할 항목 (3~4주 전 알림)")
+                for p_day, p_name, p_date_str, p_items in prep_alerts_in_month:
+                    st.warning(
+                        f"**{sel_month}월 {p_day}일경 준비 시작** ➡️ **{p_name} ({p_date_str}) 대비**\n"
+                        f"- 추천 소싱 품목: {p_items}"
+                    )
+
+        with col_cal_right:
+            st.markdown("#### 📋 다가오는 시즌/기념일 전체 스케줄 (D-Day 순)")
+            schedule_rows = []
+            for ev in upcoming_list:
+                schedule_rows.append({
+                    "D-Day": f"D-{ev['d_day']}",
+                    "기념일 날짜": ev["event_date"].strftime("%Y-%m-%d"),
+                    "시즌 / 기념일명": ev["name"],
+                    "권장 소싱 기간 (3~4주 전)": ev["prep_window"],
+                    "현재 액션 상태": ev["action_status"],
+                    "추천 소싱 상품군": ev["items"],
+                    "블로그 추천 키워드": ev["keywords"],
+                })
+            df_sched = pd.DataFrame(schedule_rows)
+            st.dataframe(df_sched, use_container_width=True, hide_index=True, height=520)
+
+    # ==========================================
+    # TAB 1: 도매처 품절/단종 일괄 스캔
+    # ==========================================
     with tab1:
-        st.subheader("🔍 등록 상품 도매처 생존 및 품절 일괄 스캔")
-        st.write("버튼을 누르면 구글 시트에 등록된 모든 도매처 링크에 접속해 페이지 삭제(404)나 품절 문구가 있는지 한 번에 검사합니다.")
+        st.subheader("🔍 등록 상품 도매처 생존 및 품절 일괄 점검")
+        st.write("주문 접수 시 또는 매일 아침 버튼을 눌러 도매처 링크가 살아있는지 한 번에 검사하세요.")
 
         col_btn1, col_btn2 = st.columns([3, 1])
         with col_btn1:
             scan_trigger = st.button("🚀 전체 상품 도매처 상태 실시간 스캔 실행", type="primary", use_container_width=True)
         with col_btn2:
-            if st.button("🔄 구글 시트 새로고침", use_container_width=True):
+            if st.button("🔄 시트 데이터 새로고침", use_container_width=True):
                 st.cache_data.clear()
                 st.rerun()
 
         if scan_trigger:
             results = []
-            progress_bar = st.progress(0, text="도매처 링크 상태를 확인하고 있습니다...")
+            progress_bar = st.progress(0, text="도매처 링크 상태를 점검하고 있습니다...")
             total_items = len(df)
 
             for idx, row in df.iterrows():
-                p_name = row.get("상품명", f"상품 {idx+1}")
-                w_name = row.get("도매처명", "-")
-                w_url = row.get("도매처링크", "")
-                s_url = row.get("스마트스토어링크", "")
-                b_url = row.get("블로그홍보링크", "")
-                w_price = float(row.get("도매원가", 0))
-                s_price = float(row.get("판매가", 0))
+                p_name = str(row.get("상품명", f"상품 {idx+1}"))
+                w_name = str(row.get("도매처명", "-"))
+                w_url = str(row.get("도매처링크", ""))
+                s_url = str(row.get("스마트스토어링크", ""))
+                b_url = str(row.get("블로그홍보링크", ""))
+                w_price = pd.to_numeric(row.get("도매원가", 0), errors="coerce") or 0
+                s_price = pd.to_numeric(row.get("판매가", 0), errors="coerce") or 0
 
                 status_badge, detail_msg = check_wholesale_status(w_url)
 
@@ -168,23 +358,22 @@ try:
                     "도매처": w_name,
                     "도매원가": f"{int(w_price):,}원",
                     "스토어판매가": f"{int(s_price):,}원",
-                    "점검 상세": detail_msg,
-                    "도매처 바로가기": w_url,
-                    "내 스토어 링크": s_url,
-                    "블로그/카페 홍보글": b_url,
+                    "점검 결과 상세": detail_msg,
+                    "도매처 링크": w_url,
+                    "내 스토어": s_url,
+                    "블로그/카페": b_url,
                 })
                 progress_bar.progress((idx + 1) / total_items, text=f"[{idx+1}/{total_items}] {p_name} 점검 완료")
 
             df_res = pd.DataFrame(results)
 
-            # 요약 지표 출력
+            ok_cnt = sum(1 for r in results if "🟢" in r["상태"])
             danger_cnt = sum(1 for r in results if "🔴" in r["상태"])
             warn_cnt = sum(1 for r in results if "🟡" in r["상태"])
-            ok_cnt = sum(1 for r in results if "🟢" in r["상태"])
 
             m1, m2, m3 = st.columns(3)
             m1.metric("🟢 정상 판매 가능", f"{ok_cnt}건")
-            m2.metric("🔴 품절/단종 위험 (즉시 조치)", f"{danger_cnt}건")
+            m2.metric("🔴 품절/단종 위험 (즉시 확인)", f"{danger_cnt}건")
             m3.metric("🟡 수동 확인 필요", f"{warn_cnt}건")
 
             st.dataframe(
@@ -192,81 +381,362 @@ try:
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "도매처 바로가기": st.column_config.LinkColumn("도매처 링크", display_text="🔗 도매처 열기"),
-                    "내 스토어 링크": st.column_config.LinkColumn("스마트스토어", display_text="🏪 스토어 열기"),
-                    "블로그/카페 홍보글": st.column_config.LinkColumn("홍보 게시글", display_text="📝 게시글 열기"),
+                    "도매처 링크": st.column_config.LinkColumn("도매처", display_text="🔗 도매처 열기"),
+                    "내 스토어": st.column_config.LinkColumn("스마트스토어", display_text="🏪 스토어 열기"),
+                    "블로그/카페": st.column_config.LinkColumn("홍보글", display_text="📝 홍보글 열기"),
                 },
             )
 
-    # ------------------------------------------
-    # TAB 2: 개별 상품 정밀 체크 (주문 접수 시 확인 & 마진 계산 & 블로그 카드 생성)
-    # ------------------------------------------
+    # ==========================================
+    # TAB 2: 개별 상품 점검 & 인포그래픽 스튜디오 (원클릭 복사 + PNG 다운로드)
+    # ==========================================
     with tab2:
-        st.subheader("📌 개별 상품 발주 전 점검 & 블로그/카페 홍보 카드 생성")
+        st.subheader("🎨 실시간 인포그래픽 홍보 카드 메이커 (클립보드 복사 & PNG 사진 저장)")
 
-        df["상품선택"] = df.index.astype(str) + " | [" + df.get("도매처명", pd.Series(["기본"]*len(df))).astype(str) + "] " + df["상품명"].astype(str)
-        product_list = ["➕ [직접 수동 입력 / 신규 소싱 테스트]"] + df["상품선택"].tolist()
+        df["상품선택"] = (
+            df.index.astype(str)
+            + " | ["
+            + df.get("도매처명", pd.Series(["기본"] * len(df))).astype(str)
+            + "] "
+            + df["상품명"].astype(str)
+        )
+        product_list = ["➕ [직접 수동 입력 / 신규 상품 작성]"] + df["상품선택"].tolist()
 
-        selected_prod_str = st.selectbox("관리할 상품을 선택하세요 (선택 시 시트 데이터 자동 연동)", product_list)
+        selected_prod_str = st.selectbox("시트에 등록된 상품을 불러오거나 직접 작성하세요", product_list)
 
-        if selected_prod_str != "➕ [직접 수동 입력 / 신규 소싱 테스트]":
+        if selected_prod_str != "➕ [직접 수동 입력 / 신규 상품 작성]":
             sel_idx = int(selected_prod_str.split(" | ")[0])
             row = df.iloc[sel_idx]
         else:
             row = None
 
-        c1, c2 = st.columns(2)
-        with c1:
-            p_name = st.text_input("📦 상품명", value=row.get("상품명", "신규 소싱 상품") if row is not None else "캠핑용 감성 랜턴")
-            w_url = st.text_input("🔗 도매처 원본 URL", value=row.get("도매처링크", "") if row is not None else "https://domeggook.com/")
-            s_url = st.text_input("🏪 내 스마트스토어 상품 URL", value=row.get("스마트스토어링크", "") if row is not None else "https://smartstore.naver.com/")
-            p_point = st.text_input("✨ 상품 핵심 소구점 (블로그 카드용)", value="가성비 최고, 당일 발송 가능!")
+        default_p_name = str(row.get("상품명", "캠핑용 초경량 감성 우드 롤테이블")) if row is not None else "캠핑용 초경량 감성 우드 롤테이블"
+        default_w_url = str(row.get("도매처링크", "https://domeggook.com/")) if row is not None else "https://domeggook.com/"
+        default_s_url = str(row.get("스마트스토어링크", "https://smartstore.naver.com/")) if row is not None else "https://smartstore.naver.com/"
+        default_w_price = int(pd.to_numeric(row.get("도매원가", 16500), errors="coerce") or 16500) if row is not None else 16500
+        default_s_price = int(pd.to_numeric(row.get("판매가", 28900), errors="coerce") or 28900) if row is not None else 28900
 
-        with c2:
-            w_price = st.number_input("💵 도매 공급가 (원)", value=int(row.get("도매원가", 15000)) if row is not None else 15000, step=500)
-            s_price = st.number_input("🏷️ 스마트스토어 판매가 (원)", value=int(row.get("판매가", 24900)) if row is not None else 24900, step=500)
-            fee_rate = st.number_input("📉 네이버 수수료율 (%)", value=5.6, step=0.1, help="스마트스토어 기본 결제수수료 + 네이버쇼핑 연동수수료 합산 약 5.5~5.8%")
+        with st.expander("💰 이 상품 마진 계산기 & 도매처 품절 즉시 점검 (클릭하여 열기)", expanded=False):
+            mc1, mc2 = st.columns(2)
+            with mc1:
+                w_url_input = st.text_input("🔗 도매처 원본 URL", value=default_w_url)
+                w_price_input = st.number_input("💵 도매 공급가 (원)", value=default_w_price, step=500)
+                fee_rate = st.number_input("📉 네이버 수수료율 (%)", value=5.6, step=0.1)
+            with mc2:
+                naver_fee = int(default_s_price * (fee_rate / 100))
+                net_profit = default_s_price - w_price_input - naver_fee
+                margin_rate = (net_profit / default_s_price * 100) if default_s_price > 0 else 0.0
 
-            # 실시간 마진 계산
-            naver_fee = int(s_price * (fee_rate / 100))
-            net_profit = s_price - w_price - naver_fee
-            margin_rate = (net_profit / s_price * 100) if s_price > 0 else 0.0
-
-            st.info(
-                f"💰 **예상 순수익: {net_profit:,}원** (마진율: **{margin_rate:.1f}%**)\n\n"
-                f"*(판매가 {s_price:,}원 - 도매원가 {w_price:,}원 - 수수료 약 {naver_fee:,}원)*"
-            )
-
-        if st.button("🔍 이 상품 도매처 상태 즉시 확인하기", use_container_width=True):
-            status_badge, detail_msg = check_wholesale_status(w_url)
-            if "🟢" in status_badge:
-                st.success(f"**{status_badge}** : {detail_msg} 👉 지금 도매처에 발주 넣으셔도 됩니다!")
-            elif "🔴" in status_badge:
-                st.error(f"**{status_badge}** : {detail_msg} 👉 주의! 스마트스토어 품절 처리 및 블로그 링크 수정이 필요합니다.")
-            else:
-                st.warning(f"**{status_badge}** : {detail_msg} 👉 링크를 직접 눌러 재고를 확인하세요: [도매처 바로가기]({w_url})")
+                st.info(
+                    f"💰 **예상 순수익: {net_profit:,}원** (마진율: **{margin_rate:.1f}%**)\n\n"
+                    f"*(판매가 {default_s_price:,}원 - 도매원가 {w_price_input:,}원 - 수수료 약 {naver_fee:,}원)*"
+                )
+                if st.button("🔍 도매처 현재 상태 즉시 테스트", use_container_width=True):
+                    status_badge, detail_msg = check_wholesale_status(w_url_input)
+                    if "🟢" in status_badge:
+                        st.success(f"{status_badge} : {detail_msg}")
+                    elif "🔴" in status_badge:
+                        st.error(f"{status_badge} : {detail_msg}")
+                    else:
+                        st.warning(f"{status_badge} : {detail_msg}")
 
         st.markdown("---")
-        st.markdown("### 🌟 [네이버 블로그/카페 전용] 스마트스토어 상품 홍보 HTML 카드")
-        st.write("기존 앱처럼 아래 코드를 복사(`Ctrl + C`)해 네이버 블로그나 카페 글쓰기(HTML 모드 또는 기본 에디터)에 붙여넣어 홍보용 배너로 활용하세요!")
 
-        blog_promo_html = f"""
-<div style="background-color:#ffffff; border:2px solid #03c75a; padding:22px; border-radius:12px; font-family:sans-serif; max-width:650px; margin:15px auto; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-    <h3 style="color:#03c75a; text-align:center; margin-top:0; margin-bottom:12px;">🛍️ 스마트스토어 추천 상품 안내</h3>
-    <hr style="border:1px solid #f0f0f0; margin-bottom:15px;">
-    <p style="font-size:16px; margin:8px 0;"><b>📦 상품명:</b> {p_name}</p>
-    <p style="font-size:15px; margin:8px 0;"><b>✨ 핵심 포인트:</b> {p_point}</p>
-    <p style="font-size:16px; margin:8px 0;"><b>🏷️ 특별 할인가:</b> <span style="color:#e63946; font-weight:bold; font-size:18px;">{s_price:,}원</span></p>
-    <div style="text-align:center; margin-top:20px;">
-        <a href="{s_url}" target="_blank" style="background-color:#03c75a; color:#ffffff; padding:12px 28px; text-decoration:none; border-radius:6px; font-weight:bold; font-size:15px; display:inline-block;">👉 네이버 스마트스토어에서 상세 보기</a>
-    </div>
-</div>
+        edit_col, preview_col = st.columns([1.05, 1.25], gap="large")
+
+        with edit_col:
+            st.markdown("#### ✏️ 1. 인포그래픽 텍스트 & 디자인 실시간 수정")
+            p_name = st.text_input("📦 상품 메인 제목", value=default_p_name)
+            p_sub = st.text_input("💬 한 줄 서브 카피", value="설치 1분 완성! 감성과 실용성을 모두 잡은 캠핑 필수템")
+
+            cp1, cp2, cp3 = st.columns(3)
+            with cp1:
+                orig_price = st.number_input("정상가 (할인 전)", value=int(default_s_price * 1.35 // 100 * 100), step=1000)
+            with cp2:
+                s_price = st.number_input("스마트스토어 판매가", value=default_s_price, step=500)
+            with cp3:
+                ship_info = st.selectbox("🚚 배송/혜택 강조 태그", ["무료배송", "오늘출발", "당일발송", "특가할인", "사은품증정"])
+
+            disc_rate = int((1 - (s_price / orig_price)) * 100) if orig_price > s_price and orig_price > 0 else 0
+
+            st.markdown("#### 📊 2. 핵심 체크포인트 3가지 & 스펙표")
+            feat1 = st.text_input("✔️ 핵심 포인트 1", value="초경량 원목 소재로 흔들림 없는 튼튼한 내구성")
+            feat2 = st.text_input("✔️ 핵심 포인트 2", value="전용 수납 파우치 기본 증정으로 간편한 휴대")
+            feat3 = st.text_input("✔️ 핵심 포인트 3", value="실내 인테리어 및 베란다 홈캠핑용으로도 안성맞춤")
+
+            sp1, sp2 = st.columns(2)
+            with sp1:
+                spec_label1 = st.text_input("스펙 항목 1", value="소재 / 중량")
+                spec_val1 = st.text_input("스펙 내용 1", value="천연 비치우드 / 약 2.8kg")
+            with sp2:
+                spec_label2 = st.text_input("스펙 항목 2", value="발송 / AS 안내")
+                spec_val2 = st.text_input("스펙 내용 2", value="국내 당일발송 / 초기불량 100% 교환")
+
+            cs1, cs2 = st.columns(2)
+            with cs1:
+                badge_text = st.text_input("🏅 상단 강조 뱃지", value="🔥 스마트스토어 MD 강력추천")
+                rating_stars = st.select_slider("⭐ 별점 표시", options=["⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐⭐"], value="⭐⭐⭐⭐⭐")
+            with cs2:
+                theme_choice = st.selectbox(
+                    "🎨 카드 컬러 테마",
+                    ["네이버 그린 (#03c75a)", "다크 네이비 (#1e3a8a)", "코랄 레드 (#e11d48)", "모던 블랙 (#18181b)"],
+                )
+                s_url = st.text_input("🏪 스마트스토어 구매 링크", value=default_s_url)
+
+            img_url = st.text_input(
+                "🖼️ 상품 이미지 URL (선택사항 - 넣으면 카드 중앙에 사진이 들어갑니다)",
+                value="",
+                placeholder="https://... (이미지 주소 입력 시 반영, 비워두면 깔끔한 인포그래픽 표로 생성)",
+            )
+
+        theme_map = {
+            "네이버 그린 (#03c75a)": ("#03c75a", "#e8f8f0"),
+            "다크 네이비 (#1e3a8a)": ("#1e3a8a", "#eff6ff"),
+            "코랄 레드 (#e11d48)": ("#e11d48", "#fff1f2"),
+            "모던 블랙 (#18181b)": ("#18181b", "#f4f4f5"),
+        }
+        main_color, sub_bg = theme_map[theme_choice]
+
+        safe_filename = re.sub(r"[^가-힣a-zA-Z0-9_-]", "_", p_name)[:25] or "smartstore_card"
+
+        img_block = ""
+        if img_url.strip():
+            img_block = f"""
+            <tr>
+                <td colspan="2" align="center" style="padding: 16px 24px 6px 24px; background-color: #ffffff;">
+                    <img src="{img_url.strip()}" crossorigin="anonymous" style="max-width: 100%; max-height: 320px; height: auto; border-radius: 10px; border: 1px solid #e5e7eb;" alt="상품 이미지" />
+                </td>
+            </tr>
+            """
+
+        discount_badge_html = (
+            f'<span style="font-size: 26px; font-weight: 900; color: #e11d48; margin-right: 10px;">{disc_rate}% ↓</span>'
+            if disc_rate > 0
+            else ""
+        )
+
+        infographic_html = f"""
+<table width="100%" style="max-width: 620px; margin: 0 auto; border-collapse: collapse; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; border: 3px solid {main_color}; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+    <tr bgcolor="{main_color}">
+        <td colspan="2" style="padding: 15px 22px; color: #ffffff; background-color: {main_color};">
+            <span style="background-color: #ffffff; color: {main_color}; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 800;">{badge_text}</span>
+            <span style="float: right; font-size: 14px; color: #ffffff; font-weight: bold;">만족도 {rating_stars}</span>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" style="padding: 24px 24px 12px 24px; border-bottom: 1px solid #eeeeee; background-color: #ffffff;">
+            <div style="font-size: 24px; font-weight: 900; color: #111111; line-height: 1.35; margin-bottom: 8px; letter-spacing: -0.5px;">{p_name}</div>
+            <div style="font-size: 15px; color: #555555; font-weight: 600;">{p_sub}</div>
+        </td>
+    </tr>
+    {img_block}
+    <tr>
+        <td colspan="2" style="padding: 16px 24px; background-color: #ffffff;">
+            <table width="100%" style="border-collapse: collapse; background-color: {sub_bg}; border-radius: 10px; border: 1px solid {main_color}33;" bgcolor="{sub_bg}">
+                <tr>
+                    <td style="padding: 16px 20px; width: 65%;">
+                        <div style="font-size: 13px; color: #777777; text-decoration: line-through;">정상가 {orig_price:,}원</div>
+                        <div style="margin-top: 4px;">
+                            {discount_badge_html}
+                            <span style="font-size: 26px; font-weight: 900; color: #111111;">{s_price:,}원</span>
+                        </div>
+                    </td>
+                    <td align="right" style="padding: 16px 20px; width: 35%;">
+                        <span style="background-color: {main_color}; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 800; display: inline-block;">🚚 {ship_info}</span>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" style="padding: 4px 24px 16px 24px; background-color: #ffffff;">
+            <table width="100%" style="border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px;">
+                <tr bgcolor="#f8fafc">
+                    <td style="padding: 11px 16px; font-size: 14px; font-weight: 800; color: #1e293b; border-bottom: 1px solid #e5e7eb; background-color: #f8fafc;">
+                        📌 핵심 체크포인트 TOP 3
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 16px; font-size: 14.5px; color: #222222; line-height: 1.85; background-color: #ffffff;">
+                        <div style="margin-bottom: 4px;">✅ <b>POINT 1.</b> {feat1}</div>
+                        <div style="margin-bottom: 4px;">✅ <b>POINT 2.</b> {feat2}</div>
+                        <div>✅ <b>POINT 3.</b> {feat3}</div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" style="padding: 0px 24px 18px 24px; background-color: #ffffff;">
+            <table width="100%" style="border-collapse: collapse; border: 1px solid #e5e7eb; font-size: 13px;">
+                <tr>
+                    <td width="28%" bgcolor="#f8fafc" style="padding: 10px 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;">{spec_label1}</td>
+                    <td width="72%" style="padding: 10px 12px; color: #1e293b; border-bottom: 1px solid #e5e7eb;">{spec_val1}</td>
+                </tr>
+                <tr>
+                    <td width="28%" bgcolor="#f8fafc" style="padding: 10px 12px; font-weight: bold; color: #475569; border-right: 1px solid #e5e7eb;">{spec_label2}</td>
+                    <td width="72%" style="padding: 10px 12px; color: #1e293b;">{spec_val2}</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" align="center" style="padding: 6px 24px 24px 24px; background-color: #ffffff;">
+            <a href="{s_url}" target="_blank" style="background-color: {main_color}; color: #ffffff; padding: 15px 36px; text-decoration: none; border-radius: 8px; font-weight: 900; font-size: 16px; display: inline-block;">
+                👉 네이버 스마트스토어 공식 판매처 바로가기
+            </a>
+        </td>
+    </tr>
+</table>
 """
-        st.code(blog_promo_html, language="html")
 
-    # ------------------------------------------
+        with preview_col:
+            st.markdown("#### 👀 2. 실시간 프리뷰 & 원클릭 추출 (복사 / PNG 저장)")
+
+            component_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+                <style>
+                    body {{
+                        margin: 0;
+                        padding: 0;
+                        font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+                        background-color: transparent;
+                    }}
+                    .action-bar {{
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                        margin-bottom: 14px;
+                    }}
+                    .big-btn {{
+                        width: 100%;
+                        padding: 18px 20px;
+                        font-size: 18px;
+                        font-weight: 900;
+                        border-radius: 10px;
+                        cursor: pointer;
+                        border: none;
+                        transition: all 0.15s ease-in-out;
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                    }}
+                    .big-btn:hover {{
+                        transform: translateY(-2px);
+                        box-shadow: 0 6px 12px rgba(0,0,0,0.18);
+                    }}
+                    .big-btn:active {{
+                        transform: translateY(0);
+                    }}
+                    .btn-png {{
+                        background-color: #111827;
+                        color: #ffffff;
+                        border: 2px solid #111827;
+                    }}
+                    .btn-copy {{
+                        background-color: {main_color};
+                        color: #ffffff;
+                    }}
+                    #status-msg {{
+                        text-align: center;
+                        font-weight: 800;
+                        font-size: 14.5px;
+                        padding: 10px;
+                        border-radius: 8px;
+                        margin-bottom: 12px;
+                        display: none;
+                    }}
+                    #capture-wrapper {{
+                        background-color: #ffffff;
+                        padding: 12px;
+                        border-radius: 14px;
+                        display: inline-block;
+                        width: 100%;
+                        box-sizing: border-box;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="action-bar">
+                    <button class="big-btn btn-png" onclick="downloadPNG()">
+                        📸 인포그래픽 고화질 PNG 사진으로 다운로드 (클릭 즉시 저장)
+                    </button>
+                    <button class="big-btn btn-copy" onclick="copyInfographic()">
+                        📋 블로그/카페 표 서식 통째로 복사하기 (클릭 후 본문에 Ctrl+V)
+                    </button>
+                </div>
+
+                <div id="status-msg"></div>
+
+                <div id="capture-wrapper">
+                    {infographic_html}
+                </div>
+
+                <script>
+                function showMessage(text, bgColor, textColor) {{
+                    const msg = document.getElementById('status-msg');
+                    msg.innerText = text;
+                    msg.style.backgroundColor = bgColor;
+                    msg.style.color = textColor;
+                    msg.style.display = 'block';
+                    setTimeout(() => {{
+                        msg.style.display = 'none';
+                    }}, 4500);
+                }}
+
+                function copyInfographic() {{
+                    const area = document.getElementById('capture-wrapper');
+                    const range = document.createRange();
+                    range.selectNode(area);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    try {{
+                        document.execCommand('copy');
+                        showMessage('✅ 클립보드에 복사되었습니다! 네이버 블로그/카페 글쓰기 창에 그대로 Ctrl+V 하세요.', '#dcfce7', '#166534');
+                    }} catch (err) {{
+                        showMessage('⚠️ 자동 복사에 실패했습니다. 아래 카드를 마우스로 드래그하여 Ctrl+C를 눌러주세요.', '#fee2e2', '#991b1b');
+                    }}
+                    selection.removeAllRanges();
+                }}
+
+                function downloadPNG() {{
+                    const target = document.getElementById('capture-wrapper');
+                    showMessage('⏳ 고화질 PNG 이미지를 생성 중입니다... 잠시만 기다려주세요.', '#fef3c7', '#92400e');
+
+                    html2canvas(target, {{
+                        scale: 2,
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: '#ffffff'
+                    }}).then(canvas => {{
+                        const link = document.createElement('a');
+                        link.download = '{safe_filename}_인포그래픽.png';
+                        link.href = canvas.toDataURL('image/png');
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        showMessage('🎉 PNG 이미지 파일이 다운로드되었습니다! 블로그에 사진처럼 업로드하고 스토어 링크를 걸어주세요.', '#dbeafe', '#1e40af');
+                    }}).catch(err => {{
+                        console.error(err);
+                        showMessage('⚠️ 외부 이미지 보안 정책으로 캡처가 제한되었습니다. 상품 이미지 URL을 비우고 다시 시도해 보세요.', '#fee2e2', '#991b1b');
+                    }});
+                }}
+                </script>
+            </body>
+            </html>
+            """
+            components.html(component_html, height=860, scrolling=True)
+
+    # ==========================================
     # TAB 3: 구글 시트 원본 데이터
-    # ------------------------------------------
+    # ==========================================
     with tab3:
         st.subheader("📊 구글 시트 등록 상품 원본 데이터")
         st.dataframe(df, use_container_width=True)
