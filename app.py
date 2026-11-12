@@ -11,16 +11,16 @@ import calendar
 # SSL 보안 경고 무시 (일부 도매 사이트 크롤링 오류 방지)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-st.set_page_config(page_title="스마트스토어 위탁판매 & 장부 매니저", layout="wide")
+st.set_page_config(page_title="스마트스토어 위탁판매 올인원 매니저", layout="wide")
 
 # 한국 시간(KST) 기준 오늘 날짜 계산
 KST = timezone(timedelta(hours=9))
 today = datetime.now(KST).date()
 
-st.title("🛒 스마트스토어 위탁판매 & 수익장부·인포그래픽 통합 매니저")
+st.title("🛒 스마트스토어 위탁판매 & 블로그·수익장부 올인원 매니저")
 st.write(
     f"📅 **오늘 날짜: {today.strftime('%Y년 %m월 %d일')}** | "
-    "시즌 소싱 캘린더, 도매처 품절 스캔, **수익·지출 장부 관리**, **5종 블로그 인포그래픽 제작(복사 & PNG 저장)**을 한곳에서 관리합니다."
+    "시즌 소싱 캘린더, 도매처 품절·가격인상 스캔, 수익장부, 5종 인포그래픽 제작, **SEO 상품명·블로그 원고 생성**, **CS 답변 복사함**을 한곳에서 관리합니다."
 )
 
 # ==========================================
@@ -128,9 +128,9 @@ def load_data(url):
 
 
 # ==========================================
-# 3. 도매처 링크 생존 & 품절 감지 함수
+# 3. 도매처 링크 생존, 품절 & 기습 가격 인상 감지 함수
 # ==========================================
-def check_wholesale_status(url):
+def check_wholesale_status(url, recorded_wholesale_price=0, selling_price=0, fee_rate=5.6):
     if not url or pd.isna(url) or not str(url).startswith("http"):
         return "⚪ 링크 미입력", "도매처 URL을 입력해주세요."
 
@@ -143,19 +143,9 @@ def check_wholesale_status(url):
     }
 
     sold_out_keywords = [
-        "품절",
-        "일시품절",
-        "판매종료",
-        "판매중지",
-        "재고없음",
-        "구매불가",
-        "단종",
-        "삭제된 상품",
-        "존재하지 않는 상품",
-        "현재 판매중인 상품이 아닙니다",
-        "판매가 종료",
-        "sold out",
-        "out of stock",
+        "품절", "일시품절", "판매종료", "판매중지", "재고없음",
+        "구매불가", "단종", "삭제된 상품", "존재하지 않는 상품",
+        "현재 판매중인 상품이 아닙니다", "판매가 종료", "sold out", "out of stock",
     ]
 
     try:
@@ -174,14 +164,147 @@ def check_wholesale_status(url):
         if detected:
             return "🔴 품절/종료 의심", f"감지된 단어: {', '.join(detected[:3])}"
 
-        return "🟢 정상 판매중", "특이사항 없음 (발주 가능)"
+        # 마진율 위험도 및 웹페이지 내 가격 변동 감지
+        if selling_price > 0 and recorded_wholesale_price > 0:
+            est_fee = int(round(selling_price * (fee_rate / 100)))
+            est_margin = selling_price - recorded_wholesale_price - est_fee
+            margin_pct = (est_margin / selling_price) * 100
+            if margin_pct < 10.0:
+                return "🟠 역마진/저마진 주의", f"현재 마진율 {margin_pct:.1f}% (순수익 {est_margin:,}원) - 판매가 인상 권장!"
+
+        # 페이지 내 가격 패턴(예: 18,500원) 스캔 후 시트 원가와 비교
+        if recorded_wholesale_price > 1000:
+            price_matches = re.findall(r"([1-9][0-9]{0,2}(?:,[0-9]{3})+)\s*원", page_text)
+            extracted_prices = [int(p.replace(",", "")) for p in price_matches]
+            # 시트 원가 대비 +5% ~ +60% 사이로 근접하게 오른 가격이 페이지 주요 위치에 있는지 확인
+            higher_candidates = [
+                p for p in extracted_prices
+                if int(recorded_wholesale_price * 1.05) <= p <= int(recorded_wholesale_price * 1.6)
+            ]
+            if higher_candidates and recorded_wholesale_price not in extracted_prices:
+                suspect_price = min(higher_candidates, key=lambda x: abs(x - recorded_wholesale_price))
+                diff = suspect_price - recorded_wholesale_price
+                return "🟠 도매가 인상 의심", f"시트원가({recorded_wholesale_price:,}원) 대비 페이지 내 {suspect_price:,}원(+{diff:,}원) 감지됨"
+
+        return "🟢 정상 판매중", "특이사항 없음 (정상 발주 가능)"
 
     except Exception as e:
         return "🟡 연결 지연/오류", f"수동 확인 필요 ({type(e).__name__})"
 
 
 # ==========================================
-# 4. 데이터 로드 및 5대 핵심 탭 구성
+# 4. 원클릭 클립보드 복사 버튼 생성 헬퍼 함수
+# ==========================================
+def render_copy_box(title_label, content_text, box_id, btn_color="#03c75a", height=220):
+    escaped_text = (
+        content_text.replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("$", "\\$")
+    )
+    html_Display = content_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+    comp_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <style>
+        body {{ margin: 0; padding: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: transparent; }}
+        .box-wrap {{
+            background-color: #ffffff;
+            border: 2px solid {btn_color};
+            border-radius: 10px;
+            padding: 14px;
+            box-sizing: border-box;
+        }}
+        .top-row {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }}
+        .box-title {{
+            font-size: 14.5px;
+            font-weight: 900;
+            color: #111827;
+        }}
+        .copy-btn {{
+            background-color: {btn_color};
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+        }}
+        .copy-btn:hover {{ opacity: 0.9; }}
+        .content-area {{
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 13.5px;
+            color: #1e293b;
+            line-height: 1.65;
+            max-height: {height - 85}px;
+            overflow-y: auto;
+        }}
+        .msg-toast {{
+            display: none;
+            font-size: 12.5px;
+            font-weight: 800;
+            color: #16a34a;
+            margin-left: 8px;
+        }}
+    </style>
+    </head>
+    <body>
+        <div class="box-wrap">
+            <div class="top-row">
+                <div>
+                    <span class="box-title">{title_label}</span>
+                    <span id="msg_{box_id}" class="msg-toast">✅ 복사 완료! (Ctrl+V)</span>
+                </div>
+                <button class="copy-btn" onclick="copyText_{box_id}()">📋 원클릭 텍스트 복사</button>
+            </div>
+            <div class="content-area">{html_Display}</div>
+        </div>
+        <script>
+        function copyText_{box_id}() {{
+            const rawText = `{escaped_text}`;
+            if (navigator.clipboard && navigator.clipboard.writeText) {{
+                navigator.clipboard.writeText(rawText).then(() => {{
+                    showToast_{box_id}();
+                }}).catch(() => fallbackCopy_{box_id}(rawText));
+            }} else {{
+                fallbackCopy_{box_id}(rawText);
+            }}
+        }}
+        function fallbackCopy_{box_id}(text) {{
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast_{box_id}();
+        }}
+        function showToast_{box_id}() {{
+            const el = document.getElementById('msg_{box_id}');
+            el.style.display = 'inline';
+            setTimeout(() => {{ el.style.display = 'none'; }}, 3000);
+        }}
+        </script>
+    </body>
+    </html>
+    """
+    components.html(comp_code, height=height, scrolling=False)
+
+
+# ==========================================
+# 5. 데이터 로드 및 7대 핵심 탭 구성
 # ==========================================
 try:
     with st.spinner("구글 시트 데이터를 불러오는 중입니다..."):
@@ -259,7 +382,6 @@ try:
             },
         ])
 
-    # 숫자형 컬럼 안전 변환 (통화 기호나 콤마가 있어도 숫자로 자동 인식)
     def clean_num(series, default=0):
         if series is None:
             return pd.Series([default] * len(df))
@@ -270,12 +392,23 @@ try:
     df["누적판매수량_num"] = clean_num(df.get("누적판매수량"), 0)
     df["광고및기타지출_num"] = clean_num(df.get("광고및기타지출"), 0)
 
-    tab_cal, tab_scan, tab_ledger, tab_info, tab_raw = st.tabs([
-        "📅 1. 시즌/기념일 소싱 캘린더",
-        "🚨 2. 도매처 품절/단종 스캔",
-        "💰 3. 수익·지출 장부 대시보드",
-        "🎨 4. 5종 인포그래픽 스튜디오 (복사 & PNG)",
-        "📊 5. 구글 시트 원본 & 바로가기",
+    df["상품선택"] = (
+        df.index.astype(str)
+        + " | ["
+        + df.get("도매처명", pd.Series(["기본"] * len(df))).astype(str)
+        + "] "
+        + df["상품명"].astype(str)
+    )
+    product_list = ["➕ [직접 수동 입력 / 신규 상품 작성]"] + df["상품선택"].tolist()
+
+    tab_cal, tab_scan, tab_ledger, tab_info, tab_seo, tab_cs, tab_raw = st.tabs([
+        "📅 1. 시즌 캘린더",
+        "🚨 2. 품절·가격인상 스캔",
+        "💰 3. 수익장부 & 목표마진 역산",
+        "🎨 4. 5종 인포그래픽 스튜디오",
+        "🚀 5. SEO 상품명 & 블로그 원고",
+        "💬 6. 고객 CS 1초 복사함",
+        "📊 7. 구글 시트 원본",
     ])
 
     # ==========================================
@@ -402,15 +535,17 @@ try:
             st.dataframe(df_sched, use_container_width=True, hide_index=True, height=560)
 
     # ==========================================
-    # TAB 2: 도매처 품절/단종 일괄 스캔
+    # TAB 2: 도매처 품절/단종 + 기습 가격 인상 일괄 스캔
     # ==========================================
     with tab_scan:
-        st.subheader("🔍 등록 상품 도매처 생존 및 품절 일괄 점검")
-        st.write("주문 접수 시 또는 매일 아침 버튼을 눌러 도매처 링크가 살아있는지 한 번에 검사하세요.")
+        st.subheader("🔍 등록 상품 도매처 품절·단종 & 기습 가격 인상 일괄 스캔")
+        st.write(
+            "버튼을 누르면 도매처 링크 삭제(404), 품절 키워드뿐만 아니라 **도매원가 기습 인상 및 저마진(10% 미만) 위험**까지 한 번에 잡아냅니다."
+        )
 
         col_btn1, col_btn2 = st.columns([3, 1])
         with col_btn1:
-            scan_trigger = st.button("🚀 전체 상품 도매처 상태 실시간 스캔 실행", type="primary", use_container_width=True)
+            scan_trigger = st.button("🚀 전체 상품 도매처 품절 & 가격 변동 실시간 스캔 실행", type="primary", use_container_width=True)
         with col_btn2:
             if st.button("🔄 시트 데이터 새로고침", use_container_width=True):
                 st.cache_data.clear()
@@ -418,7 +553,7 @@ try:
 
         if scan_trigger:
             results = []
-            progress_bar = st.progress(0, text="도매처 링크 상태를 점검하고 있습니다...")
+            progress_bar = st.progress(0, text="도매처 링크 및 가격 상태를 점검하고 있습니다...")
             total_items = len(df)
 
             for idx, row in df.iterrows():
@@ -430,15 +565,20 @@ try:
                 w_price = int(row.get("도매원가_num", 0))
                 s_price = int(row.get("판매가_num", 0))
 
-                status_badge, detail_msg = check_wholesale_status(w_url)
+                est_fee = int(round(s_price * 0.056))
+                unit_net = s_price - w_price - est_fee
+                unit_margin_pct = (unit_net / s_price * 100) if s_price > 0 else 0.0
+
+                status_badge, detail_msg = check_wholesale_status(w_url, w_price, s_price, 5.6)
 
                 results.append({
                     "No": idx + 1,
                     "상태": status_badge,
                     "상품명": p_name,
                     "도매처": w_name,
-                    "도매원가": f"{w_price:,}원",
+                    "시트도매원가": f"{w_price:,}원",
                     "스토어판매가": f"{s_price:,}원",
+                    "개당순마진": f"{unit_net:,}원 ({unit_margin_pct:.1f}%)",
                     "점검 결과 상세": detail_msg,
                     "도매처 링크": w_url,
                     "내 스토어": s_url,
@@ -450,12 +590,14 @@ try:
 
             ok_cnt = sum(1 for r in results if "🟢" in r["상태"])
             danger_cnt = sum(1 for r in results if "🔴" in r["상태"])
+            price_warn_cnt = sum(1 for r in results if "🟠" in r["상태"])
             warn_cnt = sum(1 for r in results if "🟡" in r["상태"])
 
-            m1, m2, m3 = st.columns(3)
+            m1, m2, m3, m4 = st.columns(4)
             m1.metric("🟢 정상 판매 가능", f"{ok_cnt}건")
-            m2.metric("🔴 품절/단종 위험 (즉시 확인)", f"{danger_cnt}건")
-            m3.metric("🟡 수동 확인 필요", f"{warn_cnt}건")
+            m2.metric("🔴 품절/단종 위험 (즉시 품절처리)", f"{danger_cnt}건")
+            m3.metric("🟠 가격인상/역마진 주의", f"{price_warn_cnt}건")
+            m4.metric("🟡 수동 확인 필요", f"{warn_cnt}건")
 
             st.dataframe(
                 df_res,
@@ -469,13 +611,13 @@ try:
             )
 
     # ==========================================
-    # TAB 3: 수익·지출 장부 대시보드 (가로형 랭킹 바 적용으로 세로 글씨 문제 완벽 해결)
+    # TAB 3: 수익·지출 장부 대시보드 & 목표 마진 역산 시뮬레이터
     # ==========================================
     with tab_ledger:
         st.subheader("💰 스마트스토어 수익·지출 통합 장부 대시보드")
         st.write(
             "구글 시트에 입력된 `도매원가`, `판매가`, `누적판매수량`, `광고및기타지출`을 기반으로 "
-            "**총매출·총지출·최종 순수익**을 실시간으로 정산합니다."
+            "**총매출·총지출·최종 순수익**을 실시간 정산합니다."
         )
 
         col_fee_opt, col_extra_exp = st.columns(2)
@@ -518,7 +660,6 @@ try:
                 "도매처": w_name,
                 "판매단가": f"{s_p:,}원",
                 "개당순마진": f"{unit_margin:,}원",
-                "판매수량_num": qty,
                 "판매수량": f"{qty:,}개",
                 "총매출액 (수익)": f"{item_rev:,}원",
                 "도매원가 합계": f"{item_w_cost:,}원",
@@ -526,7 +667,6 @@ try:
                 "광고/기타지출": f"{ad_c:,}원",
                 "최종 순수익": item_net_profit,
                 "순수익(표시)": f"{item_net_profit:,}원",
-                "실마진율_num": item_roi,
                 "실마진율": f"{item_roi:.1f}%",
             })
 
@@ -534,7 +674,6 @@ try:
         final_net_profit = total_rev - total_expense
         overall_margin_rate = (final_net_profit / total_rev * 100) if total_rev > 0 else 0.0
 
-        # 상단 4대 요약 카드
         k1, k2, k3, k4 = st.columns(4)
         k1.metric("📈 총 매출액 (Gross 수익)", f"{total_rev:,}원")
         k2.metric("💸 총 지출 합계 (원가+수수료+광고)", f"{total_expense:,}원", f"-도매원가 {total_wholesale_cost:,}원", delta_color="inverse")
@@ -556,8 +695,6 @@ try:
 
         with col_l_chart:
             st.markdown("#### 🏆 효자 상품 순수익 랭킹 (가로형 한눈에 보기)")
-
-            # 순수익 높은 순으로 정렬하여 가로 막대 카드 형태로 렌더링 (글씨 세로 깨짐 완벽 방지)
             df_ranked = df_ledger.sort_values(by="최종 순수익", ascending=False).reset_index(drop=True)
             max_profit = max(df_ranked["최종 순수익"].max(), 1)
 
@@ -592,103 +729,61 @@ try:
             <head>
             <meta charset="utf-8">
             <style>
-                body {{ margin: 0; padding: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background-color: transparent; }}
-                .rank-container {{
-                    background-color: #1e293b;
-                    border: 1px solid #334155;
-                    border-radius: 12px;
-                    padding: 16px;
-                    color: #f8fafc;
-                }}
-                .rank-card {{
-                    margin-bottom: 14px;
-                }}
-                .rank-card:last-child {{
-                    margin-bottom: 0;
-                }}
-                .rank-header {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 6px;
-                    gap: 8px;
-                    flex-wrap: wrap;
-                }}
-                .rank-title {{
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    font-size: 14px;
-                    font-weight: 800;
-                    color: #ffffff;
-                }}
-                .rank-badge {{
-                    font-size: 11.5px;
-                    padding: 2px 8px;
-                    border-radius: 6px;
-                    color: #ffffff;
-                    font-weight: 900;
-                    white-space: nowrap;
-                }}
-                .prod-name {{
-                    word-break: keep-all;
-                }}
-                .rank-profit {{
-                    font-size: 14.5px;
-                    font-weight: 900;
-                    white-space: nowrap;
-                }}
-                .sub-info {{
-                    font-size: 11.5px;
-                    color: #94a3b8;
-                    font-weight: normal;
-                }}
-                .progress-bg {{
-                    width: 100%;
-                    height: 12px;
-                    background-color: #0f172a;
-                    border-radius: 999px;
-                    overflow: hidden;
-                }}
-                .progress-fill {{
-                    height: 100%;
-                    border-radius: 999px;
-                    transition: width 0.4s ease;
-                }}
+                body {{ margin: 0; padding: 0; font-family: 'Malgun Gothic', sans-serif; background-color: transparent; }}
+                .rank-container {{ background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; color: #f8fafc; }}
+                .rank-card {{ margin-bottom: 14px; }}
+                .rank-card:last-child {{ margin-bottom: 0; }}
+                .rank-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }}
+                .rank-title {{ display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: #ffffff; }}
+                .rank-badge {{ font-size: 11.5px; padding: 2px 8px; border-radius: 6px; color: #ffffff; font-weight: 900; white-space: nowrap; }}
+                .prod-name {{ word-break: keep-all; }}
+                .rank-profit {{ font-size: 14.5px; font-weight: 900; white-space: nowrap; }}
+                .sub-info {{ font-size: 11.5px; color: #94a3b8; font-weight: normal; }}
+                .progress-bg {{ width: 100%; height: 12px; background-color: #0f172a; border-radius: 999px; overflow: hidden; }}
+                .progress-fill {{ height: 100%; border-radius: 999px; }}
             </style>
             </head>
-            <body>
-                <div class="rank-container">
-                    {rank_bars_html}
-                </div>
-            </body>
+            <body><div class="rank-container">{rank_bars_html}</div></body>
             </html>
             """
             rank_height = max(240, len(df_ranked) * 64 + 35)
             components.html(ranking_component_html, height=rank_height, scrolling=True)
 
-        st.info(
-            "💡 **장부 업데이트 방법:** [5. 구글 시트 원본 & 바로가기] 탭에서 시트를 열어 `누적판매수량`이나 `광고및기타지출` 숫자만 고치면 이 장부와 가로 랭킹이 자동으로 계산됩니다!"
-        )
+        st.markdown("---")
+        st.markdown("### 🧮 [신규 소싱 필수] 목표 마진 & 스토어 쿠폰 할인가 역산 시뮬레이터")
+        st.caption("도매원가와 내가 남기고 싶은 순수익(원), 고객에게 줄 할인쿠폰 금액을 넣으면 스마트스토어에 등록해야 할 정확한 판매가를 계산해 줍니다.")
+
+        sim_c1, sim_c2, sim_c3, sim_c4 = st.columns(4)
+        with sim_c1:
+            sim_w_cost = st.number_input("1️⃣ 도매 공급원가 (원)", value=14000, step=500)
+        with sim_c2:
+            sim_ship_subsidy = st.number_input("2️⃣ 내가 부담할 배송비 보조금 (무료배송 시 3000)", value=0, step=500)
+        with sim_c3:
+            sim_coupon = st.number_input("3️⃣ 스토어 알림받기/할인 쿠폰 설정액 (원)", value=1000, step=500)
+        with sim_c4:
+            sim_target_profit = st.number_input("4️⃣ 개당 꼭 남기고 싶은 목표 순수익 (원)", value=6000, step=500)
+
+        # 역산 공식: 실결제가 = (도매원가 + 배송비보조 + 목표순수익) / (1 - 수수료율)
+        fee_ratio = ledger_fee_rate / 100.0
+        required_actual_pay = int(round((sim_w_cost + sim_ship_subsidy + sim_target_profit) / (1.0 - fee_ratio), -2))
+        recommended_list_price = required_actual_pay + sim_coupon
+        bep_price = int(round((sim_w_cost + sim_ship_subsidy) / (1.0 - fee_ratio), -1))
+        expected_margin_pct = (sim_target_profit / required_actual_pay * 100) if required_actual_pay > 0 else 0.0
+
+        res_c1, res_c2, res_c3 = st.columns(3)
+        res_c1.success(f"🏷️ **스마트스토어 권장 등록 판매가: {recommended_list_price:,}원**\n\n(쿠폰 {sim_coupon:,}원 적용 시 고객 실결제가: **{required_actual_pay:,}원**)")
+        res_c2.info(f"💎 **판매 1개당 확정 순수익: {sim_target_profit:,}원**\n\n(실결제가 대비 순마진율: **{expected_margin_pct:.1f}%**)")
+        res_c3.warning(f"⚠️ **절대 손해 안 보는 손익분기점(BEP): {bep_price:,}원**\n\n(이 금액 밑으로 팔면 팔수록 적자입니다!)")
 
     # ==========================================
-    # TAB 4: 5종 인포그래픽 카드 제작 스튜디오 (복사 & PNG 다운로드)
+    # TAB 4: 5종 인포그래픽 카드 제작 스튜디오
     # ==========================================
     with tab_info:
         st.subheader("🎨 5종 블로그·카페 인포그래픽 스튜디오 (클립보드 복사 & PNG 사진 저장)")
 
-        df["상품선택"] = (
-            df.index.astype(str)
-            + " | ["
-            + df.get("도매처명", pd.Series(["기본"] * len(df))).astype(str)
-            + "] "
-            + df["상품명"].astype(str)
-        )
-        product_list = ["➕ [직접 수동 입력 / 신규 상품 작성]"] + df["상품선택"].tolist()
-
         top_sel1, top_sel2 = st.columns([1.2, 1.2])
         with top_sel1:
-            selected_prod_str = st.selectbox("1️⃣ 시트에 등록된 상품을 불러오거나 직접 작성하세요", product_list)
+            selected_prod_str = st.selectbox("1️⃣ 시트에 등록된 상품을 불러오거나 직접 작성하세요", product_list, key="info_prod_sel")
         with top_sel2:
             template_type = st.selectbox(
                 "2️⃣ 홍보용 인포그래픽 템플릿 스타일 선택 (5종)",
@@ -1117,7 +1212,198 @@ try:
             components.html(component_html, height=880, scrolling=True)
 
     # ==========================================
-    # TAB 5: 구글 시트 원본 데이터 & 바로가기
+    # TAB 5 (신규): SEO 황금 상품명 변환기 & 블로그·카페 홍보 원고 자동 생성기
+    # ==========================================
+    with tab_seo:
+        st.subheader("🚀 스마트스토어 SEO 황금 상품명 변환기 & 블로그·카페 홍보 원고 생성기")
+        st.write(
+            "도매처 원본 상품명을 그대로 쓰면 중복 문서로 노출이 누락됩니다. "
+            "**네이버 쇼핑 상위노출 규격(특수문자 제거·중복 단어 제거·50자 이내)**에 맞춘 상품명과 **블로그/카페 포스팅 원고**를 1초 만에 생성하세요."
+        )
+
+        seo_sel = st.selectbox("시트 상품 불러오기 (또는 직접 입력)", product_list, key="seo_prod_sel")
+        if seo_sel != "➕ [직접 수동 입력 / 신규 상품 작성]":
+            s_idx = int(seo_sel.split(" | ")[0])
+            s_row = df.iloc[s_idx]
+            raw_default_name = str(s_row.get("상품명", ""))
+            raw_default_price = int(s_row.get("판매가_num", 28900))
+            raw_default_url = str(s_row.get("스마트스토어링크", "https://smartstore.naver.com/"))
+        else:
+            raw_default_name = "[당일발송/특가] ★캠핑용★ 초경량 감성 우드 롤테이블 / 접이식 캠핑테이블"
+            raw_default_price = 28900
+            raw_default_url = "https://smartstore.naver.com/"
+
+        sc1, sc2 = st.columns([1.05, 1.35], gap="large")
+
+        with sc1:
+            st.markdown("#### 🛠️ 1. 도매처 원본 상품명 & 타겟 키워드 입력")
+            raw_wholesale_title = st.text_input("도매처 원본 상품명", value=raw_default_name)
+            target_main_kw = st.text_input("핵심 타겟 키워드 (쉼표로 구분)", value="감성캠핑용품, 접이식우드테이블, 피크닉테이블")
+            target_sub_kw = st.text_input("용도 / 타겟층 수식어", value="차박, 캠핑초보, 베란다홈캠핑, 집들이선물")
+            spec_kw = st.text_input("핵심 스펙 / 특징 단어", value="초경량, 원목, 파우치증정")
+            post_tone = st.radio(
+                "📝 생성할 블로그/카페 홍보 원고 스타일",
+                ["① 블로그 내돈내산·실사용 추천 후기톤", "② 블로그 정보성 꼼꼼 비교·분석톤", "③ 네이버 카페 회원 전용 공동구매·특가 공지톤"],
+            )
+
+        # 특수문자/홍보성 금지어 자동 정제 및 중복 단어 제거
+        cleaned_base = re.sub(r"\[.*?\]|\(.*?\)|★|☆|♥|♡|/|_|!|\+|~|-", " ", raw_wholesale_title)
+        banned_promo_words = ["당일발송", "무료배송", "특가", "할인", "세일", "최저가", "인기", "추천", "주문폭주", "정품"]
+        for bw in banned_promo_words:
+            cleaned_base = cleaned_base.replace(bw, " ")
+
+        base_tokens = []
+        for tk in cleaned_base.split():
+            if tk not in base_tokens and len(tk) >= 1:
+                base_tokens.append(tk)
+        clean_core_name = " ".join(base_tokens)
+
+        main_kws = [k.strip() for k in target_main_kw.split(",") if k.strip()]
+        sub_kws = [k.strip() for k in target_sub_kw.split(",") if k.strip()]
+        spec_kws = [k.strip() for k in spec_kw.split(",") if k.strip()]
+
+        m1_k = main_kws[0] if len(main_kws) > 0 else "인기상품"
+        m2_k = main_kws[1] if len(main_kws) > 1 else ""
+        s1_k = sub_kws[0] if len(sub_kws) > 0 else "다용도"
+        s2_k = sub_kws[1] if len(sub_kws) > 1 else ""
+        sp1_k = spec_kws[0] if len(spec_kws) > 0 else "고급형"
+        sp2_k = spec_kws[1] if len(spec_kws) > 1 else ""
+
+        seo_candidates = [
+            f"{m1_k} {clean_core_name} {s1_k} {sp1_k} {sp2_k}".strip(),
+            f"{s1_k} {s2_k} {clean_core_name} {m1_k} {sp1_k}".strip(),
+            f"{sp1_k} {clean_core_name} {m1_k} {m2_k} {s1_k}".strip(),
+            f"{clean_core_name} {m1_k} {s1_k} {s2_k} {sp1_k}".strip(),
+            f"{m1_k} {m2_k} {sp1_k} {clean_core_name} {s1_k}".strip(),
+        ]
+        # 중복 단어 재정리 및 50자 이내 맞춤
+        final_seo_list = []
+        for cand in seo_candidates:
+            uniq_words = []
+            for w in cand.split():
+                if w not in uniq_words:
+                    uniq_words.append(w)
+            joined = " ".join(uniq_words)[:48]
+            final_seo_list.append(f"{joined} ({len(joined)}자)")
+
+        seo_names_block = "\n".join([f"{i+1}. {name}" for i, name in enumerate(final_seo_list)])
+
+        # 해시태그 15개 자동 생성
+        all_tag_seeds = base_tokens + main_kws + sub_kws + spec_kws + ["스마트스토어추천", "가성비템", "내돈내산추천"]
+        hashtags = []
+        for tg in all_tag_seeds:
+            clean_tg = re.sub(r"\s+", "", tg)
+            if clean_tg and f"#{clean_tg}" not in hashtags:
+                hashtags.append(f"#{clean_tg}")
+        hashtag_str = " ".join(hashtags[:15])
+
+        # 원고 본문 생성
+        if "①" in post_tone:
+            blog_draft = (
+                f"[추천 타이틀] {m1_k} 고민 끝! {clean_core_name} 실사용 솔직 정리 ✨\n\n"
+                f"안녕하세요! 요즘 {s1_k} 준비하면서 정말 많은 제품을 비교해 봤는데요.\n"
+                f"저가형 제품은 내구성이 아쉽고, 유명 브랜드는 가격이 너무 부담스럽더라고요.\n"
+                f"그러다 결국 정착하게 된 가성비 끝판왕 '{clean_core_name}'을 소개해 드립니다!\n\n"
+                f"📌 [직접 써보고 느낀 핵심 장점 3가지]\n"
+                f"1️⃣ 첫째, {sp1_k} 사양이라 실제로 받아보니 마감 퀄리티가 기대 이상으로 탄탄합니다.\n"
+                f"2️⃣ 둘째, 초보자도 설명서 없이 1분이면 바로 세팅할 수 있을 만큼 간편해요 ({sp2_k}).\n"
+                f"3️⃣ 셋째, {s1_k}뿐만 아니라 {s2_k} 용도로 활용하기에도 디자인이 정말 깔끔합니다.\n\n"
+                f"💡 현재 공식 스마트스토어에서 {raw_default_price:,}원 특가 이벤트가 진행 중이라 가성비 챙기기에 딱 좋은 타이밍이에요.\n"
+                f"(여기에 4번 탭에서 만든 인포그래픽 PNG 사진을 넣어주세요!)\n\n"
+                f"👉 상세 스펙과 실구매자 리뷰는 아래 스마트스토어에서 바로 확인하실 수 있습니다!\n"
+                f"🔗 {raw_default_url}\n\n"
+                f"{hashtag_str}"
+            )
+        elif "②" in post_tone:
+            blog_draft = (
+                f"[추천 타이틀] {m1_k} 실패 없이 고르는 법! ({clean_core_name} 비교 분석) 📊\n\n"
+                f"{m1_k} 구매를 앞두고 어떤 기준을 봐야 할지 막막하신 분들을 위해 핵심 체크포인트를 정리했습니다.\n\n"
+                f"🔍 [구매 전 반드시 확인해야 할 3대 기준]\n"
+                f"✔️ 체크 1. 소재와 내구성: 잠깐 쓰고 버릴 제품이 아니라면 '{sp1_k}' 여부를 꼭 확인하세요.\n"
+                f"✔️ 체크 2. 휴대성과 구성품: '{sp2_k}' 등 필수 구성이 기본 포함되어 있는지 따져봐야 추가 지출이 없습니다.\n"
+                f"✔️ 체크 3. 빠른 국내 발송 & AS: 해외직구처럼 2주씩 걸리지 않고 불량 시 즉시 교환되는 곳인지가 핵심입니다.\n\n"
+                f"🏆 이 모든 조건을 만족하면서 가격대까지 {raw_default_price:,}원으로 합리적인 모델이 바로 '{clean_core_name}'입니다.\n"
+                f"(여기에 4번 탭의 '② 타사 비교표 인포그래픽'을 붙여넣으시면 설득력이 2배 올라갑니다!)\n\n"
+                f"👉 공식 판매처 상세페이지 바로가기: {raw_default_url}\n\n"
+                f"{hashtag_str}"
+            )
+        else:
+            blog_draft = (
+                f"📢 [카페 회원 전용 특가 공지] {clean_core_name} 한정수량 공동구매 안내 🔥\n\n"
+                f"안녕하세요 회원님들! 요즘 {s1_k} 시즌을 맞아 문의가 가장 많았던 '{clean_core_name}' 특별 할인가를 오픈했습니다.\n\n"
+                f"🎁 [이번 특가 구성 핵심 요약]\n"
+                f"• 상품명: {clean_core_name} ({sp1_k} / {sp2_k})\n"
+                f"• 카페 회원 특별가: {raw_default_price:,}원 (스토어 알림받기 쿠폰 추가 적용 가능!)\n"
+                f"• 추천 용도: {s1_k}, {s2_k}, 지인 선물용\n"
+                f"• 출고 안내: 평일 오후 2시 이전 주문 시 당일 총알 발송\n\n"
+                f"⚠️ 준비된 이벤트 재고 소진 시 예고 없이 정상가로 복구될 수 있으니 필요하셨던 분들은 서둘러 주세요!\n\n"
+                f"👉 네이버 스마트스토어 안전결제 바로가기: {raw_default_url}\n\n"
+                f"{hashtag_str}"
+            )
+
+        with sc2:
+            st.markdown("#### ✨ 2. 네이버 쇼핑 상위노출용 황금 상품명 5선 & 홍보 원고")
+            render_copy_box("🏷️ 특수문자·중복단어 제거 완료! SEO 추천 상품명 5가지 (골라서 사용)", seo_names_block, "seo_names", "#1e3a8a", 215)
+            render_copy_box("📝 블로그·카페 맞춤형 포스팅 원고 & 해시태그 15개", blog_draft, "blog_draft", "#03c75a", 390)
+
+    # ==========================================
+    # TAB 6 (신규): 위탁판매 고객 CS 1초 복사함
+    # ==========================================
+    with tab_cs:
+        st.subheader("💬 위탁판매 상황별 고객 CS(톡톡/문자) 답변 1초 복사함")
+        st.write(
+            "위탁판매 운영 중 가장 당황스러운 **도매처 갑작스러운 품절, 출고 지연, 단순변심 반품비 안내** 등을 "
+            "페널티와 클레임을 최소화하는 정중한 표준 문구로 즉시 복사해 보내세요."
+        )
+
+        cs_col1, cs_col2, cs_col3, cs_col4 = st.columns(4)
+        with cs_col1:
+            cs_cust_name = st.text_input("👤 고객명", value="홍길동")
+        with cs_col2:
+            cs_prod_name = st.text_input("📦 주문 상품명", value="캠핑용 감성 우드 롤테이블")
+        with cs_col3:
+            cs_delay_date = st.text_input("🚚 예상 출고일 / 지연 안내일", value="내일(금요일)")
+        with cs_col4:
+            cs_return_fee = st.text_input("💵 왕복 반품 배송비", value="6,000원")
+
+        cs_grid1, cs_grid2 = st.columns(2, gap="large")
+
+        msg_soldout = (
+            f"안녕하세요, {cs_cust_name} 고객님! 저희 스토어를 찾아주셔서 진심으로 감사드립니다.\n\n"
+            f"주문해주신 [{cs_prod_name}] 상품의 출고를 위해 검수하던 중, 공급처의 갑작스러운 재고 소진 및 마지막 잔여 수량 불량이 확인되어 부득이하게 정상 상품 발송이 어려운 상황입니다.\n\n"
+            f"기대하고 주문해 주셨을 텐데 불편을 드려 정말 죄송합니다. 고객님의 소중한 결제 금액이 묶이지 않도록 우선 취소 처리를 도와드리고자 하며, 재입고 시 우선 안내해 드리겠습니다.\n"
+            f"다시 한번 너그러운 양해를 부탁드립니다. 감사합니다."
+        )
+
+        msg_delay = (
+            f"안녕하세요, {cs_cust_name} 고객님! 주문해주신 [{cs_prod_name}] 배송 관련 안내드립니다.\n\n"
+            f"현재 해당 상품의 주문량 급증으로 인해 공급처 검수 및 패킹 작업이 평소보다 하루 정도 지연되고 있습니다.\n"
+            f"고객님의 상품은 [{cs_delay_date}] 최우선으로 꼼꼼히 검수하여 출고될 예정이며, 송장 번호가 나오는 대로 즉시 입력해 드리겠습니다.\n\n"
+            f"조금만 기다려주시면 안전하고 깨끗한 상품으로 보답하겠습니다. 감사합니다!"
+        )
+
+        msg_return = (
+            f"안녕하세요, {cs_cust_name} 고객님! 문의하신 [{cs_prod_name}] 반품 절차 안내드립니다.\n\n"
+            f"단순 변심 및 사이즈/옵션 착오로 인한 반품의 경우, 수령 후 7일 이내 미개봉·미사용 상태에 한해 가능하며 초기 발송비를 포함한 왕복 택배비 [{cs_return_fee}]이 발생합니다.\n\n"
+            f"스마트스토어 [주문내역 -> 반품요청]을 접수해 주시면 지정 택배사 기사님이 1~2일 내 방문 수거하며, 상품 입고 및 검수 완료 후 반품 배송비를 차감한 금액이 자동 환불됩니다. 감사합니다."
+        )
+
+        msg_review = (
+            f"안녕하세요, {cs_cust_name} 고객님! 주문하신 [{cs_prod_name}]은 안전하게 잘 받아보셨나요?\n\n"
+            f"사용해 보시면서 혹시라도 불편한 점이 있으시면 언제든 톡톡으로 말씀해 주세요! 상품이 마음에 드셨다면 잠깐 시간 내어 [구매확정]과 [포토리뷰]를 남겨주시면 저희 스토어 운영에 정말 큰 힘이 됩니다.\n\n"
+            f"항상 행복하시고 오늘도 기분 좋은 하루 보내세요. 감사합니다! 😊"
+        )
+
+        with cs_grid1:
+            render_copy_box("🚨 1. 도매처 갑작스러운 품절/단종 양해 안내 (클레임 방지용)", msg_soldout, "cs1", "#dc2626", 240)
+            render_copy_box("📦 3. 단순변심 반품 절차 & 왕복 배송비 안내", msg_return, "cs3", "#475569", 240)
+
+        with cs_grid2:
+            render_copy_box("⏳ 2. 도매처 출고/배송 지연 사전 양해 안내", msg_delay, "cs2", "#d97706", 240)
+            render_copy_box("⭐ 4. 배송 완료 후 구매확정 & 포토리뷰 유도 메시지", msg_review, "cs4", "#03c75a", 240)
+
+    # ==========================================
+    # TAB 7: 구글 시트 원본 데이터 & 바로가기
     # ==========================================
     with tab_raw:
         st.subheader("📊 구글 시트 원본 데이터 & 시트 열기")
