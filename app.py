@@ -49,14 +49,13 @@ SEASONAL_EVENTS = [
 def get_upcoming_events(ref_date):
     upcoming = []
     for ev in SEASONAL_EVENTS:
-        # 올해 날짜 계산 (이미 지났으면 내년 날짜로 계산)
         try_date = datetime(ref_date.year, ev["month"], ev["day"]).date()
         if try_date < ref_date:
             try_date = datetime(ref_date.year + 1, ev["month"], ev["day"]).date()
 
         d_day = (try_date - ref_date).days
-        prep_start = try_date - timedelta(days=28)  # 4주 전 소싱 시작 권장일
-        prep_end = try_date - timedelta(days=21)    # 3주 전 등록 마감 권장일
+        prep_start = try_date - timedelta(days=28)
+        prep_end = try_date - timedelta(days=21)
 
         if d_day <= 7:
             action_status = "🔥 [막바지 당일발송 피크] 지금 즉시 재고/품절 집중 관리!"
@@ -226,7 +225,7 @@ try:
     ])
 
     # ==========================================
-    # TAB 0 (신규): 시즌/기념일 소싱 캘린더 & 3~4주 전 준비 가이드
+    # TAB 0: 시즌/기념일 소싱 캘린더 (들여쓰기 버그 및 폭 맞춤 완벽 해결)
     # ==========================================
     with tab_cal:
         st.subheader("📅 연간 기념일 소싱 로드맵 & 월별 달력")
@@ -235,15 +234,19 @@ try:
             "대목 당일에 검색 상위노출로 주문이 터집니다."
         )
 
-        col_cal_left, col_cal_right = st.columns([1.0, 1.4], gap="large")
+        col_cal_left, col_cal_right = st.columns([1.05, 1.35], gap="large")
 
         with col_cal_left:
             st.markdown("#### 🗓️ 월별 기념일 & 소싱 달력 보기")
-            sel_year = st.selectbox("연도 선택", [today.year, today.year + 1], index=0)
-            sel_month = st.selectbox("월 선택 (달력 확인)", list(range(1, 13)), index=today.month - 1, format_func=lambda x: f"{x}월")
+            c_yr, c_mo = st.columns(2)
+            with c_yr:
+                sel_year = st.selectbox("연도 선택", [today.year, today.year + 1], index=0)
+            with c_mo:
+                sel_month = st.selectbox("월 선택 (달력 확인)", list(range(1, 13)), index=today.month - 1, format_func=lambda x: f"{x}월")
 
             # 선택한 월의 기념일 매핑
             month_events = {e["day"]: e["name"] for e in SEASONAL_EVENTS if e["month"] == sel_month}
+
             # 선택한 월에 '3~4주 전 소싱 시작일'이 걸려있는 다음 달 기념일 매핑
             prep_alerts_in_month = []
             for e in SEASONAL_EVENTS:
@@ -252,56 +255,138 @@ try:
                 if prep_dt.month == sel_month:
                     prep_alerts_in_month.append((prep_dt.day, e["name"], f"{e['month']}/{e['day']}", e["items"]))
 
-            # HTML 달력 렌더링
+            # 달력 행 HTML 생성 (components.html 사용으로 마크다운 코드블록 버그 원천 차단)
             cal_matrix = calendar.monthcalendar(sel_year, sel_month)
-            cal_html = f"""
-            <table width="100%" style="border-collapse: collapse; text-align: center; font-family: sans-serif; border: 1px solid #cbd5e1;">
-                <tr bgcolor="#1e293b" style="color: white; font-size: 13px;">
-                    <th style="padding: 8px; border: 1px solid #334155;">월</th>
-                    <th style="padding: 8px; border: 1px solid #334155;">화</th>
-                    <th style="padding: 8px; border: 1px solid #334155;">수</th>
-                    <th style="padding: 8px; border: 1px solid #334155;">목</th>
-                    <th style="padding: 8px; border: 1px solid #334155;">금</th>
-                    <th style="padding: 8px; border: 1px solid #334155; color: #93c5fd;">토</th>
-                    <th style="padding: 8px; border: 1px solid #334155; color: #fca5a5;">일</th>
-                </tr>
-            """
+            rows_html = ""
             for week in cal_matrix:
-                cal_html += "<tr>"
+                rows_html += "<tr>"
                 for idx_day, d in enumerate(week):
                     if d == 0:
-                        cal_html += '<td style="padding: 10px; border: 1px solid #e2e8f0; background-color: #f8fafc;"></td>'
+                        rows_html += '<td class="empty-cell"></td>'
                     else:
                         is_today = (sel_year == today.year and sel_month == today.month and d == today.day)
                         has_ev = d in month_events
                         has_prep = any(p[0] == d for p in prep_alerts_in_month)
 
-                        bg = "#dcfce7" if is_today else ("#fee2e2" if has_ev else ("#fef3c7" if has_prep else "#ffffff"))
-                        badge = ""
-                        if is_today:
-                            badge += "<div style='font-size:10px; color:#166534; font-weight:bold;'>오늘</div>"
-                        if has_ev:
-                            badge += f"<div style='font-size:10px; color:#dc2626; font-weight:bold;'>🎉기념일</div>"
-                        if has_prep:
-                            badge += f"<div style='font-size:10px; color:#b45309; font-weight:bold;'>🚨소싱시작</div>"
+                        bg_class = "cell-today" if is_today else ("cell-event" if has_ev else ("cell-prep" if has_prep else "cell-normal"))
+                        day_color = "#2563eb" if idx_day == 5 else ("#dc2626" if idx_day == 6 else "#1e293b")
 
-                        cal_html += f"""
-                        <td style="padding: 8px 4px; border: 1px solid #e2e8f0; background-color: {bg}; vertical-align: top; height: 55px;">
-                            <div style="font-size: 13px; font-weight: bold; color: #1e293b;">{d}</div>
-                            {badge}
-                        </td>
-                        """
-                cal_html += "</tr>"
-            cal_html += "</table>"
-            st.markdown(cal_html, unsafe_allow_html=True)
+                        badge_html = ""
+                        if is_today:
+                            badge_html += '<div class="badge badge-today">오늘</div>'
+                        if has_ev:
+                            badge_html += '<div class="badge badge-event">🎉기념일</div>'
+                        if has_prep:
+                            badge_html += '<div class="badge badge-prep">🚨소싱시작</div>'
+
+                        rows_html += f'<td class="{bg_class}"><div class="day-num" style="color:{day_color};">{d}</div>{badge_html}</td>'
+                rows_html += "</tr>"
+
+            calendar_component_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+                    background-color: transparent;
+                }}
+                .cal-table {{
+                    width: 100%;
+                    table-layout: fixed;
+                    border-collapse: collapse;
+                    background-color: #ffffff;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    border: 2px solid #334155;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+                }}
+                .cal-table th {{
+                    background-color: #1e293b;
+                    color: #ffffff;
+                    padding: 10px 0;
+                    font-size: 13px;
+                    font-weight: 800;
+                    border: 1px solid #334155;
+                    text-align: center;
+                }}
+                .cal-table td {{
+                    height: 60px;
+                    vertical-align: top;
+                    padding: 6px 4px;
+                    border: 1px solid #e2e8f0;
+                    text-align: center;
+                    box-sizing: border-box;
+                }}
+                .empty-cell {{ background-color: #f8fafc; }}
+                .cell-normal {{ background-color: #ffffff; }}
+                .cell-today {{ background-color: #dcfce7; border: 2px solid #16a34a !important; }}
+                .cell-event {{ background-color: #fee2e2; }}
+                .cell-prep {{ background-color: #fef3c7; }}
+                .day-num {{
+                    font-size: 13px;
+                    font-weight: 800;
+                    margin-bottom: 3px;
+                }}
+                .badge {{
+                    font-size: 10px;
+                    font-weight: 800;
+                    padding: 2px 3px;
+                    border-radius: 4px;
+                    margin-top: 2px;
+                    line-height: 1.2;
+                    word-break: keep-all;
+                }}
+                .badge-today {{ background-color: #16a34a; color: #ffffff; }}
+                .badge-event {{ color: #dc2626; }}
+                .badge-prep {{ color: #b45309; }}
+                .legend {{
+                    margin-top: 8px;
+                    font-size: 12px;
+                    color: #cbd5e1;
+                    text-align: center;
+                }}
+            </style>
+            </head>
+            <body>
+                <table class="cal-table">
+                    <thead>
+                        <tr>
+                            <th>월</th>
+                            <th>화</th>
+                            <th>수</th>
+                            <th>목</th>
+                            <th>금</th>
+                            <th style="color:#93c5fd;">토</th>
+                            <th style="color:#fca5a5;">일</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+            """
+            # 주(week) 수에 따라 높이 자동 조절
+            cal_height = 65 + (len(cal_matrix) * 64)
+            components.html(calendar_component_html, height=cal_height, scrolling=False)
             st.caption("🟥 빨간칸: 해당 월 기념일 당일 | 🟨 노란칸: 다음 대목 3~4주 전 소싱 시작일 | 🟩 초록칸: 오늘")
+
+            if month_events:
+                st.markdown(f"##### 🎉 {sel_month}월 당월 기념일")
+                for e_day, e_name in month_events.items():
+                    st.info(f"**{sel_month}월 {e_day}일:** {e_name}")
 
             if prep_alerts_in_month:
                 st.markdown(f"##### 🚨 {sel_month}월에 미리 소싱 시작해야 할 항목 (3~4주 전 알림)")
                 for p_day, p_name, p_date_str, p_items in prep_alerts_in_month:
                     st.warning(
-                        f"**{sel_month}월 {p_day}일경 준비 시작** ➡️ **{p_name} ({p_date_str}) 대비**\n"
-                        f"- 추천 소싱 품목: {p_items}"
+                        f"**{sel_month}월 {p_day}일경 준비 시작** ➡️ **{p_name} ({p_date_str}) 대비**\n\n"
+                        f"- **추천 소싱 품목:** {p_items}"
                     )
 
         with col_cal_right:
@@ -318,7 +403,7 @@ try:
                     "블로그 추천 키워드": ev["keywords"],
                 })
             df_sched = pd.DataFrame(schedule_rows)
-            st.dataframe(df_sched, use_container_width=True, hide_index=True, height=520)
+            st.dataframe(df_sched, use_container_width=True, hide_index=True, height=560)
 
     # ==========================================
     # TAB 1: 도매처 품절/단종 일괄 스캔
