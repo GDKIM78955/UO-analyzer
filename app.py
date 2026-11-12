@@ -19,7 +19,7 @@ KST = timezone(timedelta(hours=9))
 today = datetime.now(KST).date()
 
 # ==========================================
-# 1. 대한민국 이커머스 핵심 기념일 & 상표권/법적 금지어 DB
+# 1. 핵심 데이터베이스 (시즌 기념일 / 지재권 금지어 / KC·식약처 인증 판독 DB)
 # ==========================================
 SEASONAL_EVENTS = [
     {"month": 1, "day": 1, "name": "신정 / 새해 다짐 시즌", "items": "다이어리, 플래너, 홈트레이닝 용품, 독서대, 영양제 케이스", "keywords": "새해선물, 갓생템, 다이어리꾸미기, 홈트기구"},
@@ -40,7 +40,6 @@ SEASONAL_EVENTS = [
     {"month": 12, "day": 25, "name": "크리스마스 & 연말 홈파티 대목", "items": "크리스마스 미니 트리, LED 전구, 오너먼트, 산타 양말, 와인 오프너, 파티 테이블보", "keywords": "크리스마스트리세트, 연말홈파티소품, 크리스마스선물"},
 ]
 
-# 지재권(상표권) 및 의료기기법/식약처/표시광고법 위험 금지어 사전
 LEGAL_RISK_DICT = {
     "다이소": ("상표권 침해 위험", "다용도 / 가성비 생활용품"),
     "벨크로": ("상표권 등록어 (Velcro)", "찍찍이 / 접착식 테이프"),
@@ -48,7 +47,6 @@ LEGAL_RISK_DICT = {
     "스팸": ("상표권 침해 위험", "통조림 햄"),
     "포스트잇": ("3M 상표권 등록어", "점착 메모지"),
     "지퍼백": ("상표권 주의", "지퍼형 비닐팩 / 밀폐백"),
-    "아기띠": ("일부 카테고리 상표 주의", "유아 캐리어 / 안기 보조띠"),
     "마약": ("식약처/청소년유해 금지어", "꿀잠 / 극세사 / 푹신한"),
     "치료": ("의료기기법 위반 (공산품 사용금지)", "케어 / 도움 / 완화 보조"),
     "완치": ("의료법/허위과대광고 위반", "집중 관리 / 컨디션 케어"),
@@ -60,6 +58,44 @@ LEGAL_RISK_DICT = {
     "최고": ("표시광고법 절대적 표현 주의", "프리미엄 / 베스트"),
     "최초": ("표시광고법 입증 필요 단어", "신개념 / 업그레이드형"),
 }
+
+KC_CERT_RULES = [
+    {
+        "category": "⚡ 전기·전자·배터리·무선 제품 (손난로, 청소기, 가습기, 랜턴, 충전기 등)",
+        "keywords": ["충전", "배터리", "무선", "블루투스", "전구", "led", "가습기", "손난로", "청소기", "마사지기", "히터", "선풍기", "케이블"],
+        "cert_name": "KC 전기용품 안전인증/안전확인 + 방송통신기자재(전파인증)",
+        "check_point": "1) 내장 배터리(리튬이온)가 있으면 'KC 안전확인 번호' 필수!\n2) USB/블루투스/모터가 들어가면 '국립전파연구원 적합등록(R-R-...)' 번호 필수!\n3) 제품안전정보센터(safetykorea.kr)에서 도매처 인증번호가 폐기되지 않았는지 조회 필수.",
+        "risk_level": "🔴 최고 위험 (미인증 판매 시 형사고발 및 스토어 즉시 정지)",
+    },
+    {
+        "category": "👶 유아·어린이·완구·학용품 (13세 이하 사용 가능 제품)",
+        "keywords": ["어린이", "유아", "아기", "키즈", "장난감", "완구", "인형", "학용품", "크레파스", "킥보드", "보행기", "네임스티커"],
+        "cert_name": "KC 어린이제품 특별법 안전인증 / 안전확인 / 공급자적합성확인",
+        "check_point": "1) '14세 이상 사용 가능'이라고 대충 적어놓고 어린이용 키워드를 쓰면 적발됩니다!\n2) 반드시 어린이제품 KC인증 번호와 사용연령 표기를 상세페이지에 기입하세요.",
+        "risk_level": "🔴 최고 위험 (구매대행/위탁 모두 단속 1순위)",
+    },
+    {
+        "category": "🍽️ 주방·식기·텀블러·조리도구 (입이나 음식에 닿는 모든 용품)",
+        "keywords": ["텀블러", "식기", "도시락", "수저", "도마", "냄비", "프라이팬", "머그컵", "보온병", "와인잔", "실리콘조리", "거름망"],
+        "cert_name": "식약처 식품용 기구 및 용기·포장 수입신고필증 (한글표시사항)",
+        "check_point": "1) 해외직구/중국산 도매 상품을 식약처 정밀검역(식품용 기구 표시) 없이 팔면 식품위생법 위반입니다!\n2) 도매처에 '식약처 정식 수입신고 완료 제품'인지 꼭 확인하세요.",
+        "risk_level": "🔴 최고 위험 (식약처 사이버조사단 상시 모니터링 대상)",
+    },
+    {
+        "category": "🧪 방향제·탈취제·세정제·초·습기제거제 (생활화학제품)",
+        "keywords": ["방향제", "디퓨저", "캔들", "탈취제", "세정제", "제습제", "물티슈", "모기퇴치", "기피제", "얼룩제거", "코팅제"],
+        "cert_name": "환경부 안전확인대상생활화학제품 신고번호 (초록누리 조회)",
+        "check_point": "1) 환경부 '초록누리(ecolife.me.go.kr)'에서 신고번호(예: 제HB21-...)를 반드시 스마트스토어 속성창에 입력해야 등록됩니다.",
+        "risk_level": "🟠 주의 위험 (신고번호 누락 시 AI 모니터링 자동 판매중지)",
+    },
+    {
+        "category": "⛺ 일반 캠핑가구·수납함·인테리어 소품·성인 잡화",
+        "keywords": ["테이블", "의자", "파우치", "수납함", "가방", "지갑", "방석", "매트", "정리함", "우산", "양산"],
+        "cert_name": "별도 KC 안전인증 비대상 (단, 품질경영촉진법상 한글표시사항 준수)",
+        "check_point": "1) 전기/배터리가 없고 성인용인 일반 가구·잡화는 비교적 안전하게 소싱 가능합니다.\n2) 단, '피부 접촉 섬유류(잠옷, 양말, 담요)'는 가정용 섬유제품 KC(공급자적합성) 표기 여부를 확인하세요.",
+        "risk_level": "🟢 안전 소싱군 (초보 위탁판매자 강력 추천 카테고리)",
+    },
+]
 
 
 def get_upcoming_events(ref_date):
@@ -394,6 +430,7 @@ try:
 
     df["도매원가_num"] = clean_num(df.get("도매원가"), 0)
     df["판매가_num"] = clean_num(df.get("판매가"), 0)
+    df["배송비_num"] = clean_num(df.get("배송비"), 3000)
     df["누적판매수량_num"] = clean_num(df.get("누적판매수량"), 0)
     df["광고및기타지출_num"] = clean_num(df.get("광고및기타지출"), 0)
 
@@ -408,17 +445,17 @@ try:
 
     with st.sidebar:
         st.markdown("## 🛒 위탁판매 컨트롤 타워")
-        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 17대 기능 탑재)")
+        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 22대 기능 탑재)")
         st.markdown("---")
 
         main_menu = st.radio(
             "📂 작업할 워크스페이스를 선택하세요",
             [
-                "📅 1. 소싱 & 시즌 캘린더",
-                "🚨 2. 품절·경쟁사·블로그 감시",
-                "📦 3. 발주·송장·클레임·CS 관리",
-                "🎨 4. 마케팅·배너·지재권 스튜디오",
-                "💰 5. 수익장부·ROAS·세금 계산기",
+                "📅 1. 소싱 캘린더 & KC인증 판독",
+                "🚨 2. 품절·경쟁사·도매처 성적표",
+                "📦 3. 발주·송장·CS·리뷰답글",
+                "🎨 4. 마케팅·UTM·배너·지재권",
+                "💰 5. 수익장부·세트마진·ROAS·세금",
             ],
         )
 
@@ -434,7 +471,7 @@ try:
             st.cache_data.clear()
             st.rerun()
 
-    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (17대 기능 풀패키지)")
+    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (22대 기능 마스터 버전)")
     golden_events = [e for e in upcoming_list if e["d_day"] <= 38]
     if golden_events:
         ge = golden_events[0]
@@ -444,108 +481,167 @@ try:
         )
 
     # ==================================================================================
-    # MENU 1: 📅 소싱 & 시즌 캘린더
+    # MENU 1: 📅 소싱 캘린더 & KC인증 판독 (시즌 달력 + KC/식약처/전파인증 판독기)
     # ==================================================================================
-    if main_menu == "📅 1. 소싱 & 시즌 캘린더":
-        st.subheader("📅 연간 기념일 소싱 로드맵 & 월별 달력 (3~4주 전 사전 준비 알림)")
-        col_cal_left, col_cal_right = st.columns([1.05, 1.35], gap="large")
+    if main_menu == "📅 1. 소싱 캘린더 & KC인증 판독":
+        sub_s1, sub_s2 = st.tabs([
+            "📅 1. 연간 기념일 소싱 로드맵 & 월별 달력 (3~4주 전 알림)",
+            "🛡️ 2. KC인증·전파인증·식약처 필수 대상 품목 판독기",
+        ])
 
-        with col_cal_left:
-            st.markdown("#### 🗓️ 월별 기념일 & 소싱 달력 보기")
-            c_yr, c_mo = st.columns(2)
-            with c_yr:
-                sel_year = st.selectbox("연도 선택", [today.year, today.year + 1], index=0)
-            with c_mo:
-                sel_month = st.selectbox("월 선택 (달력 확인)", list(range(1, 13)), index=today.month - 1, format_func=lambda x: f"{x}월")
+        with sub_s1:
+            st.subheader("📅 연간 기념일 소싱 로드맵 & 월별 달력")
+            col_cal_left, col_cal_right = st.columns([1.05, 1.35], gap="large")
 
-            month_events = {e["day"]: e["name"] for e in SEASONAL_EVENTS if e["month"] == sel_month}
-            prep_alerts_in_month = []
-            for e in SEASONAL_EVENTS:
-                ev_dt = datetime(sel_year, e["month"], e["day"]).date()
-                prep_dt = ev_dt - timedelta(days=25)
-                if prep_dt.month == sel_month:
-                    prep_alerts_in_month.append((prep_dt.day, e["name"], f"{e['month']}/{e['day']}", e["items"]))
+            with col_cal_left:
+                st.markdown("#### 🗓️ 월별 기념일 & 소싱 달력 보기")
+                c_yr, c_mo = st.columns(2)
+                with c_yr:
+                    sel_year = st.selectbox("연도 선택", [today.year, today.year + 1], index=0)
+                with c_mo:
+                    sel_month = st.selectbox("월 선택 (달력 확인)", list(range(1, 13)), index=today.month - 1, format_func=lambda x: f"{x}월")
 
-            cal_matrix = calendar.monthcalendar(sel_year, sel_month)
-            rows_html = ""
-            for week in cal_matrix:
-                rows_html += "<tr>"
-                for idx_day, d in enumerate(week):
-                    if d == 0:
-                        rows_html += '<td class="empty-cell"></td>'
+                month_events = {e["day"]: e["name"] for e in SEASONAL_EVENTS if e["month"] == sel_month}
+                prep_alerts_in_month = []
+                for e in SEASONAL_EVENTS:
+                    ev_dt = datetime(sel_year, e["month"], e["day"]).date()
+                    prep_dt = ev_dt - timedelta(days=25)
+                    if prep_dt.month == sel_month:
+                        prep_alerts_in_month.append((prep_dt.day, e["name"], f"{e['month']}/{e['day']}", e["items"]))
+
+                cal_matrix = calendar.monthcalendar(sel_year, sel_month)
+                rows_html = ""
+                for week in cal_matrix:
+                    rows_html += "<tr>"
+                    for idx_day, d in enumerate(week):
+                        if d == 0:
+                            rows_html += '<td class="empty-cell"></td>'
+                        else:
+                            is_today = (sel_year == today.year and sel_month == today.month and d == today.day)
+                            has_ev = d in month_events
+                            has_prep = any(p[0] == d for p in prep_alerts_in_month)
+
+                            bg_class = "cell-today" if is_today else ("cell-event" if has_ev else ("cell-prep" if has_prep else "cell-normal"))
+                            day_color = "#2563eb" if idx_day == 5 else ("#dc2626" if idx_day == 6 else "#1e293b")
+
+                            badge_html = ""
+                            if is_today:
+                                badge_html += '<div class="badge badge-today">오늘</div>'
+                            if has_ev:
+                                badge_html += '<div class="badge badge-event">🎉기념일</div>'
+                            if has_prep:
+                                badge_html += '<div class="badge badge-prep">🚨소싱시작</div>'
+
+                            rows_html += f'<td class="{bg_class}"><div class="day-num" style="color:{day_color};">{d}</div>{badge_html}</td>'
+                    rows_html += "</tr>"
+
+                calendar_component_html = f"""
+                <!DOCTYPE html><html><head><meta charset="utf-8">
+                <style>
+                    body {{ margin: 0; padding: 0; font-family: 'Malgun Gothic', sans-serif; background-color: transparent; }}
+                    .cal-table {{ width: 100%; table-layout: fixed; border-collapse: collapse; background-color: #ffffff; border-radius: 10px; overflow: hidden; border: 2px solid #334155; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }}
+                    .cal-table th {{ background-color: #1e293b; color: #ffffff; padding: 10px 0; font-size: 13px; font-weight: 800; border: 1px solid #334155; text-align: center; }}
+                    .cal-table td {{ height: 60px; vertical-align: top; padding: 6px 4px; border: 1px solid #e2e8f0; text-align: center; box-sizing: border-box; }}
+                    .empty-cell {{ background-color: #f8fafc; }}
+                    .cell-normal {{ background-color: #ffffff; }}
+                    .cell-today {{ background-color: #dcfce7; border: 2px solid #16a34a !important; }}
+                    .cell-event {{ background-color: #fee2e2; }}
+                    .cell-prep {{ background-color: #fef3c7; }}
+                    .day-num {{ font-size: 13px; font-weight: 800; margin-bottom: 3px; }}
+                    .badge {{ font-size: 10px; font-weight: 800; padding: 2px 3px; border-radius: 4px; margin-top: 2px; line-height: 1.2; word-break: keep-all; }}
+                    .badge-today {{ background-color: #16a34a; color: #ffffff; }}
+                    .badge-event {{ color: #dc2626; }}
+                    .badge-prep {{ color: #b45309; }}
+                </style></head>
+                <body>
+                    <table class="cal-table">
+                        <thead><tr><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th style="color:#93c5fd;">토</th><th style="color:#fca5a5;">일</th></tr></thead>
+                        <tbody>{rows_html}</tbody>
+                    </table>
+                </body></html>
+                """
+                components.html(calendar_component_html, height=65 + (len(cal_matrix) * 64), scrolling=False)
+                st.caption("🟥 빨간칸: 해당 월 기념일 당일 | 🟨 노란칸: 다음 대목 3~4주 전 소싱 시작일 | 🟩 초록칸: 오늘")
+
+                if prep_alerts_in_month:
+                    st.markdown(f"##### 🚨 {sel_month}월에 미리 소싱 시작해야 할 항목 (3~4주 전 알림)")
+                    for p_day, p_name, p_date_str, p_items in prep_alerts_in_month:
+                        st.warning(f"**{sel_month}월 {p_day}일경 준비 시작** ➡️ **{p_name} ({p_date_str}) 대비**\n\n- **추천 소싱 품목:** {p_items}")
+
+            with col_cal_right:
+                st.markdown("#### 📋 다가오는 시즌/기념일 전체 스케줄 (D-Day 순)")
+                schedule_rows = [{
+                    "D-Day": f"D-{ev['d_day']}",
+                    "기념일 날짜": ev["event_date"].strftime("%Y-%m-%d"),
+                    "시즌 / 기념일명": ev["name"],
+                    "권장 소싱 기간 (3~4주 전)": ev["prep_window"],
+                    "현재 액션 상태": ev["action_status"],
+                    "추천 소싱 상품군": ev["items"],
+                    "블로그 추천 키워드": ev["keywords"],
+                } for ev in upcoming_list]
+                st.dataframe(pd.DataFrame(schedule_rows), use_container_width=True, hide_index=True, height=560)
+
+        with sub_s2:
+            st.subheader("🛡️ 소싱 전 필수! KC인증·전파인증·식약처 대상 품목 자동 판독기")
+            st.write(
+                "도매처에서 상품을 가져올 때 **인증 번호가 유효한지 반드시 확인해야 하는 위험 품목**인지, "
+                "인증 없이 마음 편히 팔아도 되는 **안전 품목**인지 상품명만 넣으면 즉시 판독합니다."
+            )
+
+            kc_input = st.text_input(
+                "🔍 소싱하려는 상품명 또는 품목 키워드를 입력하세요",
+                value="충전식 손난로 보조배터리 / 어린이 크리스마스 장난감 / 캠핑 우드 테이블",
+            )
+
+            matched_rules = []
+            for rule in KC_CERT_RULES:
+                hit_kws = [kw for kw in rule["keywords"] if kw in kc_input.lower()]
+                if hit_kws:
+                    matched_rules.append((rule, hit_kws))
+
+            if matched_rules:
+                for rule, hits in matched_rules:
+                    if "🔴" in rule["risk_level"]:
+                        st.error(
+                            f"**{rule['risk_level']} | {rule['category']}** (감지 단어: `{', '.join(hits)}`)\n\n"
+                            f"- **필수 확인 인증:** `{rule['cert_name']}`\n"
+                            f"- **소싱 체크리스트:**\n{rule['check_point']}"
+                        )
+                    elif "🟠" in rule["risk_level"]:
+                        st.warning(
+                            f"**{rule['risk_level']} | {rule['category']}** (감지 단어: `{', '.join(hits)}`)\n\n"
+                            f"- **필수 확인 인증:** `{rule['cert_name']}`\n"
+                            f"- **소싱 체크리스트:**\n{rule['check_point']}"
+                        )
                     else:
-                        is_today = (sel_year == today.year and sel_month == today.month and d == today.day)
-                        has_ev = d in month_events
-                        has_prep = any(p[0] == d for p in prep_alerts_in_month)
+                        st.success(
+                            f"**{rule['risk_level']} | {rule['category']}** (감지 단어: `{', '.join(hits)}`)\n\n"
+                            f"- **인증 안내:** `{rule['cert_name']}`\n"
+                            f"- **소싱 체크리스트:**\n{rule['check_point']}"
+                        )
+            else:
+                st.info("🟢 특별 위험 키워드가 감지되지 않았습니다. 아래 5대 카테고리별 필수 인증 기준표를 참고해 안전하게 소싱하세요.")
 
-                        bg_class = "cell-today" if is_today else ("cell-event" if has_ev else ("cell-prep" if has_prep else "cell-normal"))
-                        day_color = "#2563eb" if idx_day == 5 else ("#dc2626" if idx_day == 6 else "#1e293b")
-
-                        badge_html = ""
-                        if is_today:
-                            badge_html += '<div class="badge badge-today">오늘</div>'
-                        if has_ev:
-                            badge_html += '<div class="badge badge-event">🎉기념일</div>'
-                        if has_prep:
-                            badge_html += '<div class="badge badge-prep">🚨소싱시작</div>'
-
-                        rows_html += f'<td class="{bg_class}"><div class="day-num" style="color:{day_color};">{d}</div>{badge_html}</td>'
-                rows_html += "</tr>"
-
-            calendar_component_html = f"""
-            <!DOCTYPE html><html><head><meta charset="utf-8">
-            <style>
-                body {{ margin: 0; padding: 0; font-family: 'Malgun Gothic', sans-serif; background-color: transparent; }}
-                .cal-table {{ width: 100%; table-layout: fixed; border-collapse: collapse; background-color: #ffffff; border-radius: 10px; overflow: hidden; border: 2px solid #334155; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }}
-                .cal-table th {{ background-color: #1e293b; color: #ffffff; padding: 10px 0; font-size: 13px; font-weight: 800; border: 1px solid #334155; text-align: center; }}
-                .cal-table td {{ height: 60px; vertical-align: top; padding: 6px 4px; border: 1px solid #e2e8f0; text-align: center; box-sizing: border-box; }}
-                .empty-cell {{ background-color: #f8fafc; }}
-                .cell-normal {{ background-color: #ffffff; }}
-                .cell-today {{ background-color: #dcfce7; border: 2px solid #16a34a !important; }}
-                .cell-event {{ background-color: #fee2e2; }}
-                .cell-prep {{ background-color: #fef3c7; }}
-                .day-num {{ font-size: 13px; font-weight: 800; margin-bottom: 3px; }}
-                .badge {{ font-size: 10px; font-weight: 800; padding: 2px 3px; border-radius: 4px; margin-top: 2px; line-height: 1.2; word-break: keep-all; }}
-                .badge-today {{ background-color: #16a34a; color: #ffffff; }}
-                .badge-event {{ color: #dc2626; }}
-                .badge-prep {{ color: #b45309; }}
-            </style></head>
-            <body>
-                <table class="cal-table">
-                    <thead><tr><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th style="color:#93c5fd;">토</th><th style="color:#fca5a5;">일</th></tr></thead>
-                    <tbody>{rows_html}</tbody>
-                </table>
-            </body></html>
-            """
-            components.html(calendar_component_html, height=65 + (len(cal_matrix) * 64), scrolling=False)
-            st.caption("🟥 빨간칸: 해당 월 기념일 당일 | 🟨 노란칸: 다음 대목 3~4주 전 소싱 시작일 | 🟩 초록칸: 오늘")
-
-            if prep_alerts_in_month:
-                st.markdown(f"##### 🚨 {sel_month}월에 미리 소싱 시작해야 할 항목 (3~4주 전 알림)")
-                for p_day, p_name, p_date_str, p_items in prep_alerts_in_month:
-                    st.warning(f"**{sel_month}월 {p_day}일경 준비 시작** ➡️ **{p_name} ({p_date_str}) 대비**\n\n- **추천 소싱 품목:** {p_items}")
-
-        with col_cal_right:
-            st.markdown("#### 📋 다가오는 시즌/기념일 전체 스케줄 (D-Day 순)")
-            schedule_rows = [{
-                "D-Day": f"D-{ev['d_day']}",
-                "기념일 날짜": ev["event_date"].strftime("%Y-%m-%d"),
-                "시즌 / 기념일명": ev["name"],
-                "권장 소싱 기간 (3~4주 전)": ev["prep_window"],
-                "현재 액션 상태": ev["action_status"],
-                "추천 소싱 상품군": ev["items"],
-                "블로그 추천 키워드": ev["keywords"],
-            } for ev in upcoming_list]
-            st.dataframe(pd.DataFrame(schedule_rows), use_container_width=True, hide_index=True, height=560)
+            st.markdown("#### 📋 위탁판매자 필수 숙지 5대 카테고리 인증 요약표")
+            st.dataframe(
+                pd.DataFrame([{
+                    "위험도": r["risk_level"],
+                    "품목 카테고리": r["category"],
+                    "필수 인증 명칭": r["cert_name"],
+                    "주요 해당 키워드": ", ".join(r["keywords"][:8]),
+                } for r in KC_CERT_RULES]),
+                use_container_width=True, hide_index=True
+            )
 
     # ==================================================================================
-    # MENU 2: 🚨 품절·경쟁사·블로그 감시
+    # MENU 2: 🚨 품절·경쟁사·도매처 성적표 (품절스캔 + 블로그역추적 + 경쟁사비교 + 도매처성적표)
     # ==================================================================================
-    elif main_menu == "🚨 2. 품절·경쟁사·블로그 감시":
-        sub_m1, sub_m2, sub_m3 = st.tabs([
+    elif main_menu == "🚨 2. 품절·경쟁사·도매처 성적표":
+        sub_m1, sub_m2, sub_m3, sub_m4 = st.tabs([
             "🔍 1. 도매처 품절·단종·가격인상 스캔",
             "📝 2. 블로그·카페 죽은 홍보링크 역추적",
             "⚔️ 3. 경쟁사 스토어 최저가 비교·감시",
+            "🏆 4. 도매처(공급사)별 수익성·안정성 성적표",
         ])
 
         with sub_m1:
@@ -654,15 +750,61 @@ try:
                 c_badge, c_ext_p, c_msg = scan_competitor_page(comp_url_input, my_curr_price)
                 st.info(f"**{c_badge}** | 추출 가격: {c_ext_p:,}원 | {c_msg}")
 
+        with sub_m4:
+            st.subheader("🏆 도매처(공급사)별 수익 기여도 & 안정성 성적표")
+            st.write("어느 도매처 상품이 내 스토어에서 가장 많은 순수익을 내고 있는지, 평균 마진율이 가장 높은 S급 도매처가 어디인지 자동 평가합니다.")
+
+            vendor_stats = {}
+            for idx, row in df.iterrows():
+                v_name = str(row.get("도매처명", "기타")).strip() or "기타"
+                w_p = int(row.get("도매원가_num", 0))
+                s_p = int(row.get("판매가_num", 0))
+                qty = int(row.get("누적판매수량_num", 0))
+                ad_c = int(row.get("광고및기타지출_num", 0))
+                fee = int(round(s_p * 0.056))
+                net_p = (s_p - w_p - fee) * qty - ad_c
+                rev = s_p * qty
+
+                if v_name not in vendor_stats:
+                    vendor_stats[v_name] = {"items": 0, "qty": 0, "rev": 0, "profit": 0}
+                vendor_stats[v_name]["items"] += 1
+                vendor_stats[v_name]["qty"] += qty
+                vendor_stats[v_name]["rev"] += rev
+                vendor_stats[v_name]["profit"] += net_p
+
+            vendor_rows = []
+            for v_name, st_d in vendor_stats.items():
+                avg_roi = (st_d["profit"] / st_d["rev"] * 100) if st_d["rev"] > 0 else 0.0
+                if avg_roi >= 30 and st_d["profit"] >= 100000:
+                    grade = "👑 S등급 (주력 소싱처)"
+                elif avg_roi >= 20:
+                    grade = "🟢 A등급 (우수 공급처)"
+                elif avg_roi >= 10:
+                    grade = "🟡 B등급 (마진 개선 필요)"
+                else:
+                    grade = "🔴 C등급 (교체 검토)"
+
+                vendor_rows.append({
+                    "도매처명": v_name,
+                    "종합 평가 등급": grade,
+                    "등록 상품 수": f"{st_d['items']}종",
+                    "총 판매수량": f"{st_d['qty']:,}개",
+                    "총 매출액": f"{st_d['rev']:,}원",
+                    "누적 순수익 기여": f"{st_d['profit']:,}원",
+                    "평균 순마진율": f"{avg_roi:.1f}%",
+                })
+            st.dataframe(pd.DataFrame(vendor_rows), use_container_width=True, hide_index=True)
+
     # ==================================================================================
-    # MENU 3: 📦 발주·송장·클레임·CS 관리 (발주변환 + 송장병합 + 블랙컨슈머 필터 + CS 복사함)
+    # MENU 3: 📦 발주·송장·CS·리뷰답글 (발주변환 + 송장병합 + 블랙컨슈머 + CS복사함 + 리뷰답글생성기)
     # ==================================================================================
-    elif main_menu == "📦 3. 발주·송장·클레임·CS 관리":
-        sub_o1, sub_o2, sub_o3, sub_o4 = st.tabs([
-            "📦 1. 주문서 ➡️ 도매처 발주서 변환 (+진상고객 필터)",
-            "🚚 2. 도매처 송장번호 ➡️ 스마트스토어 일괄 발송처리 변환",
-            "🛡️ 3. 상습 반품·진상 클레임 고객 요주의 DB 관리",
-            "💬 4. 상황별 고객 CS 답변 1초 복사함",
+    elif main_menu == "📦 3. 발주·송장·CS·리뷰답글":
+        sub_o1, sub_o2, sub_o3, sub_o4, sub_o5 = st.tabs([
+            "📦 1. 주문서 ➡️ 도매처 발주 변환",
+            "🚚 2. 도매처 송장 ➡️ 스토어 일괄 발송 변환",
+            "🛡️ 3. 상습 반품·진상 고객 요주의 DB",
+            "💬 4. 고객 CS 답변 1초 복사함",
+            "⭐ 5. 스마트스토어 리뷰 답글(사장님 댓글) 생성기",
         ])
 
         if "blacklist_keywords" not in st.session_state:
@@ -753,8 +895,6 @@ try:
 
         with sub_o2:
             st.subheader("🚚 도매처 출고 송장번호 ➡️ 스마트스토어 일괄 발송처리 엑셀(CSV) 변환기")
-            st.write("도매처에서 받은 택배사명과 송장번호 파일을 올리면, 네이버 스마트스토어 센터 **[발주/발송관리 -> 엑셀 일괄 발송]** 규격으로 즉시 변환합니다.")
-
             up_inv = st.file_uploader("📂 도매처 송장 파일 업로드 (.csv / .xlsx - 미업로드 시 샘플 데이터로 즉시 테스트)", type=["csv", "xlsx"], key="inv_up")
             if up_inv is not None:
                 try:
@@ -774,11 +914,8 @@ try:
                     courier = str(r_i.get("택배사", r_i.get("배송업체", "CJ대한통운")))
                     track_no = re.sub(r"[^0-9]", "", str(r_i.get("운송장번호", r_i.get("송장번호", ""))))
                     naver_dispatch_rows.append({
-                        "상품주문번호": ord_no,
-                        "배송방법": "택배,등기,소포",
-                        "택배사": courier,
-                        "송장번호": track_no,
-                        "수취인명(확인용)": str(r_i.get("수취인명", r_i.get("받는사람", "-"))),
+                        "상품주문번호": ord_no, "배송방법": "택배,등기,소포", "택배사": courier,
+                        "송장번호": track_no, "수취인명(확인용)": str(r_i.get("수취인명", r_i.get("받는사람", "-"))),
                     })
                 df_dispatch = pd.DataFrame(naver_dispatch_rows)
                 st.dataframe(df_dispatch, use_container_width=True, hide_index=True)
@@ -792,7 +929,6 @@ try:
 
         with sub_o3:
             st.subheader("🛡️ 상습 반품·부당 클레임 요주의 고객(블랙컨슈머) 필터 DB")
-            st.write("고의 훼손 후 무료 반품을 요구하거나 악성 클레임을 거는 연락처/주소 키워드를 적어두면, [1번 발주 변환] 탭에서 주문 업로드 시 자동으로 `🚨 요주의 고객 확인!` 경고를 띄웁니다.")
             st.session_state["blacklist_keywords"] = st.text_area(
                 "요주의 연락처 / 수취인명 / 주소 키워드 목록 (쉼표로 구분하여 입력)",
                 value=st.session_state["blacklist_keywords"], height=120
@@ -823,15 +959,46 @@ try:
             with cs_grid2:
                 render_copy_box("⏳ 2. 도매처 출고/배송 지연 양해 안내", msg_delay, "cs2", "#d97706", 220)
                 render_copy_box("⭐ 4. 배송 완료 후 구매확정 & 리뷰 유도", msg_review, "cs4", "#03c75a", 220)
+
+        with sub_o5:
+            st.subheader("⭐ 스마트스토어 고객 리뷰 1:1 맞춤 답글(사장님 댓글) 생성기")
+            st.write("상세페이지를 보러 온 예비 구매자들은 **사장님이 리뷰에 얼마나 정성껏 답글을 달았는지, 특히 불만 리뷰에 어떻게 대처했는지**를 보고 결제를 결정합니다.")
+
+            rv_c1, rv_c2 = st.columns([1.0, 1.3], gap="large")
+            with rv_c1:
+                rv_prod = st.text_input("리뷰 달린 상품명", value="캠핑용 초경량 감성 우드 롤테이블")
+                rv_point = st.text_input("칭찬/언급된 포인트", value="빠른 배송과 튼튼한 마감")
+                rv_benefit = st.text_input("재구매 유도 혜택 안내", value="스토어 찜 & 소식받기 1,000원 할인 쿠폰")
+
+            with rv_c2:
+                reply_5star = (
+                    f"안녕하세요 고객님! 바쁘신 와중에도 정성스러운 별점 5점 리뷰를 남겨주셔서 진심으로 감사드립니다 😊\n"
+                    f"구매하신 [{rv_prod}]의 '{rv_point}' 부분에 만족하셨다니 준비한 보람이 느껴져 정말 기쁩니다!\n"
+                    f"앞으로도 사용하시면서 궁금한 점이 있으시면 언제든 톡톡 주세요. 다음 방문 시 [{rv_benefit}]도 꼭 챙겨서 알뜰하게 이용해 보세요! 늘 행복하세요 💚"
+                )
+                reply_3star = (
+                    f"안녕하세요 고객님! 소중한 시간을 내어 솔직한 사용 후기를 남겨주셔서 감사드립니다.\n"
+                    f"[{rv_prod}] 사용 중 말씀해주신 소중한 의견은 공급처 및 검수팀과 즉시 공유하여 한층 더 만족스러운 품질로 개선하겠습니다!\n"
+                    f"혹시 사용하시면서 추가로 불편하신 점이 있다면 언제든 네이버 톡톡으로 말씀해 주세요. 끝까지 책임지고 안내해 드리겠습니다. 감사합니다!"
+                )
+                reply_1star = (
+                    f"안녕하세요 고객님, 먼저 기대하고 주문해주신 [{rv_prod}] 상품으로 인해 불편과 실망을 드려 고개 숙여 사과드립니다.\n"
+                    f"출고 전 검수를 거치고 있으나 배송 과정 또는 초기 불량으로 인해 불편을 겪으신 것 같아 마음이 무겁습니다.\n"
+                    f"번거로우시겠지만 네이버 톡톡으로 연락 주시면 판매자 100% 부담으로 **즉시 새 상품 맞교환 또는 전액 환불**을 가장 빠르게 처리해 드리겠습니다. 다시 한번 죄송합니다."
+                )
+                render_copy_box("😍 1. [별점 5점 극찬 리뷰용] 재구매 & 단골 유도 감사 답글", reply_5star, "rv5", "#03c75a", 195)
+                render_copy_box("🙂 2. [별점 3~4점 아쉬움 리뷰용] 피드백 수용 & 신뢰도 상승 답글", reply_3star, "rv3", "#2563eb", 195)
+                render_copy_box("🙇‍♂️ 3. [별점 1~2점 불만/불량 리뷰용] 다른 예비 구매자를 안심시키는 명품 사과 답글", reply_1star, "rv1", "#dc2626", 205)
                 # ==================================================================================
-    # MENU 4: 🎨 마케팅·배너·지재권 스튜디오 (인포그래픽 + 썸네일합성 + 상세공지배너 + SEO & 지재권검출)
+    # MENU 4: 🎨 마케팅·UTM·배너·지재권 (인포그래픽 + 썸네일합성 + 공지배너 + SEO/지재권 + UTM 추적링크)
     # ==================================================================================
-    elif main_menu == "🎨 4. 마케팅·배너·지재권 스튜디오":
-        sub_mk1, sub_mk2, sub_mk3, sub_mk4 = st.tabs([
+    elif main_menu == "🎨 4. 마케팅·UTM·배너·지재권":
+        sub_mk1, sub_mk2, sub_mk3, sub_mk4, sub_mk5 = st.tabs([
             "🎨 1. 5종 블로그·카페 인포그래픽 제작",
             "🖼️ 2. 대표 썸네일(1000x1000) 배지 합성기",
-            "📢 3. 상세페이지 상·하단 배송/반품 공지 배너 생성기",
-            "🚀 4. SEO 상품명·원고 & 상표권/법적 금지어 검사기",
+            "📢 3. 상세페이지 상·하단 공지 배너 생성기",
+            "🚀 4. SEO 상품명·원고 & 상표권/금지어 검사기",
+            "🔗 5. 블로그·카페 유입 추적 링크(nt_source) 생성기",
         ])
 
         with sub_mk1:
@@ -1190,7 +1357,6 @@ try:
 
         with sub_mk3:
             st.subheader("📢 스마트스토어 상세페이지 상·하단 공통 공지 배너 생성기 (배송/교환/AS 안내 PNG)")
-            st.write("모든 상품 상세페이지 맨 위나 맨 아래에 넣어 신뢰도를 높이고 반품 분쟁을 예방하는 **공식 안내 배너 이미지(PNG)**를 생성합니다.")
             bn_c1, bn_c2 = st.columns([1.0, 1.3], gap="large")
             with bn_c1:
                 bn_store_name = st.text_input("🏪 내 스마트스토어 이름", value="트렌드 픽 공식 스토어")
@@ -1263,13 +1429,8 @@ try:
                     ["① 블로그 내돈내산·실사용 추천 후기톤", "② 블로그 정보성 꼼꼼 비교·분석톤", "③ 네이버 카페 회원 전용 공동구매·특가 공지톤"],
                 )
 
-                # 상표권 및 법적 금지어 실시간 검출
                 combined_check_text = f"{raw_wholesale_title} {target_main_kw} {target_sub_kw} {spec_kw}"
-                found_risks = []
-                for bad_word, (reason, safe_alt) in LEGAL_RISK_DICT.items():
-                    if bad_word in combined_check_text:
-                        found_risks.append(f"- ❌ **`{bad_word}`** ({reason}) ➡️ 권장 대체어: **`{safe_alt}`**")
-
+                found_risks = [f"- ❌ **`{bw}`** ({rs}) ➡️ 권장 대체어: **`{alt}`**" for bw, (rs, alt) in LEGAL_RISK_DICT.items() if bw in combined_check_text]
                 if found_risks:
                     st.error("🚨 **[지재권·법적 금지어 경보]** 입력한 단어 중 내용증명 또는 스토어 페널티 위험 단어가 감지되었습니다!\n\n" + "\n".join(found_risks))
                 else:
@@ -1326,15 +1487,42 @@ try:
                 render_copy_box("🏷️ SEO 추천 상품명 5가지 (금지어·특수문자·중복단어 제거 완료)", seo_names_block, "seo_names", "#1e3a8a", 215)
                 render_copy_box("📝 블로그·카페 맞춤형 포스팅 원고 & 해시태그 15개", blog_draft, "blog_draft", "#03c75a", 360)
 
+        with sub_mk5:
+            st.subheader("🔗 블로그·카페 유입 경로 추적 링크(네이버 애널리틱스 `nt_source` 파라미터) 생성기")
+            st.write(
+                "스마트스토어 센터 **[마케팅분석 -> 사용자정의채널]**에서 내 블로그 글에서 몇 명이 들어와 결제했는지, "
+                "카페 공지글에서 몇 명이 결제했는지 정확히 분리해서 추적할 수 있는 전용 링크를 만들어 줍니다."
+            )
+
+            utm_c1, utm_c2 = st.columns([1.0, 1.3], gap="large")
+            with utm_c1:
+                base_store_link = st.text_input("내 스마트스토어 상품 원본 URL", value="https://smartstore.naver.com/mystore/products/10000001")
+                nt_source = st.selectbox("유입 채널 (nt_source)", ["naver_blog (네이버 블로그)", "naver_cafe (네이버 카페)", "instagram (인스타그램)", "youtube (유튜브)"])
+                nt_medium = st.selectbox("홍보 방식 (nt_medium)", ["infographic_card (인포그래픽배너)", "review_post (내돈내산후기글)", "group_buy (카페공구공지)", "profile_link (프로필링크)"])
+                nt_detail = st.text_input("게시글 구분 별칭 (nt_detail - 영문/숫자 권장)", value=f"post_{today.strftime('%m%d')}")
+
+            src_code = nt_source.split(" ")[0]
+            med_code = nt_medium.split(" ")[0]
+            sep = "&" if "?" in base_store_link else "?"
+            tracked_url = f"{base_store_link.strip()}{sep}nt_source={src_code}&nt_medium={med_code}&nt_detail={nt_detail.strip()}"
+
+            with utm_c2:
+                render_copy_box(
+                    "🎯 생성된 스마트스토어 유입 추적 전용 URL (인포그래픽/블로그 링크에 이 주소를 넣으세요!)",
+                    tracked_url, "utm_box", "#6d28d9", 180
+                )
+                st.info("💡 **활용 팁:** 위 추적 URL을 복사해 **[1. 5종 인포그래픽 제작]** 탭의 '스마트스토어 구매 링크' 칸에 붙여넣으면, 어떤 블로그 글과 인포그래픽에서 실제 매출이 터졌는지 스마트스토어 통계에 100% 기록됩니다!")
+
     # ==================================================================================
-    # MENU 5: 💰 수익장부·ROAS·세금 계산기 (장부 + 월별기록 + 마진/ROAS/세금 + 시트원본)
+    # MENU 5: 💰 수익장부·세트마진·ROAS·세금 (장부 + 월별기록 + 1+1세트마진 + 마진/ROAS/세금 + 시트원본)
     # ==================================================================================
-    elif main_menu == "💰 5. 수익장부·ROAS·세금 계산기":
-        sub_f1, sub_f2, sub_f3, sub_f4 = st.tabs([
+    elif main_menu == "💰 5. 수익장부·세트마진·ROAS·세금":
+        sub_f1, sub_f2, sub_f3, sub_f4, sub_f5 = st.tabs([
             "💎 1. 실시간 수익장부 & 효자 랭킹",
-            "🗓️ 2. 월별 정산 마감 & 누적 성장 그래프",
-            "🎯 3. 마진 역산 · 검색광고 ROAS · 세금 계산기",
-            "📊 4. 구글 시트 원본 데이터 보기",
+            "🗓️ 2. 월별 정산 마감 & 누적 그래프",
+            "🎁 3. 1+1 세트 구성 & 무료배송 전환 마진 설계기",
+            "🎯 4. 단품 마진 역산 · ROAS · 세금 계산기",
+            "📊 5. 구글 시트 원본 데이터 보기",
         ])
 
         col_ym, col_fee_opt, col_extra_exp = st.columns(3)
@@ -1497,6 +1685,54 @@ try:
                     components.html(f"<!DOCTYPE html><html><body style='margin:0;font-family:Malgun Gothic,sans-serif;'><div style='background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;'><div style='font-size:12px;color:#94a3b8;margin-bottom:10px;'>🟦 파란 바: 월 총매출액 | 🟩 초록 바: 월 최종 순수익</div>{m_bars_html}</div></body></html>", height=max(180, len(df_m_valid) * 62 + 50), scrolling=True)
 
         with sub_f3:
+            st.subheader("🎁 객단가 2배 상승! 1+1(2개 묶음) & 무료배송 전환 마진 비교 설계기")
+            st.write(
+                "위탁판매에서 1개씩 팔면 도매처 배송비 때문에 마진이 적지만, **2개 구매 시 할인(또는 무료배송)을 걸어 합배송으로 출고하면 배송비가 한 번만 나가 순수익이 폭발적으로 증가**합니다."
+            )
+
+            bd1, bd2, bd3, bd4 = st.columns(4)
+            with bd1:
+                b_unit_w = st.number_input("1개당 도매원가 (원)", value=8900, step=500)
+            with bd2:
+                b_unit_s = st.number_input("1개 단품 판매가 (원)", value=17900, step=500)
+            with bd3:
+                b_ship_cost = st.number_input("도매처 1회 출고 택배비 (원)", value=3000, step=500)
+            with bd4:
+                b_bundle_disc = st.number_input("2개 구매 시 고객 추가할인액 (원)", value=2000, step=500)
+
+            fee_r = ledger_fee_rate / 100.0
+            # 1) 단품 1개 판매 (고객이 배송비 3,000원 별도 부담 가정)
+            single_fee = int(round((b_unit_s + b_ship_cost) * fee_r))
+            single_net = (b_unit_s + b_ship_cost) - b_unit_w - b_ship_cost - single_fee
+
+            # 2) 1+1 (2개 세트) + 무료배송 혜택 제공 시 (합배송으로 도매 택배비는 1번만 지출!)
+            bundle2_pay = (b_unit_s * 2) - b_bundle_disc
+            bundle2_fee = int(round(bundle2_pay * fee_r))
+            bundle2_net = bundle2_pay - (b_unit_w * 2) - b_ship_cost - bundle2_fee
+
+            # 3) 2+1 (3개 세트) + 무료배송 혜택 제공 시
+            bundle3_pay = (b_unit_s * 3) - (b_bundle_disc * 2)
+            bundle3_fee = int(round(bundle3_pay * fee_r))
+            bundle3_net = bundle3_pay - (b_unit_w * 3) - b_ship_cost - bundle3_fee
+
+            bc1, bc2, bc3 = st.columns(3)
+            bc1.info(
+                f"📦 **단품 1개 판매 시 (유료배송)**\n\n"
+                f"- 고객 결제액: {b_unit_s:,}원 (+배송비 {b_ship_cost:,}원)\n"
+                f"- **내 통장 순수익: {single_net:,}원**"
+            )
+            bc2.success(
+                f"🔥 **[강력추천] 2개 세트 ({b_bundle_disc:,}원 할인 + 무료배송)**\n\n"
+                f"- 고객 결제액: **{bundle2_pay:,}원 (무료배송!)**\n"
+                f"- **내 통장 순수익: {bundle2_net:,}원** (단품 대비 **+{bundle2_net - single_net:,}원** 이득!)"
+            )
+            bc3.warning(
+                f"👑 **3개 패밀리 세트 ({b_bundle_disc*2:,}원 할인 + 무료배송)**\n\n"
+                f"- 고객 결제액: **{bundle3_pay:,}원 (무료배송!)**\n"
+                f"- **내 통장 순수익: {bundle3_net:,}원** (단품 대비 **+{bundle3_net - single_net:,}원** 이득!)"
+            )
+
+        with sub_f4:
             st.markdown("#### 🧮 1. 목표 마진 & 스토어 쿠폰 할인가 역산 시뮬레이터")
             sim_c1, sim_c2, sim_c3, sim_c4 = st.columns(4)
             with sim_c1:
@@ -1521,7 +1757,6 @@ try:
 
             st.markdown("---")
             st.markdown("#### 🎯 2. 네이버 쇼핑검색광고 손익분기 ROAS & 최대 클릭당 입찰가(Max CPC) 계산기")
-            st.caption("광고를 돌릴 때 몇 %의 ROAS가 나와야 본전인지, 1클릭당 최대 얼마까지 입찰해도 적자가 안 나는지 계산합니다.")
             ro1, ro2, ro3 = st.columns(3)
             with ro1:
                 ad_prod_price = st.number_input("광고할 상품 판매가 (원)", value=int(required_actual_pay), step=500)
@@ -1560,7 +1795,7 @@ try:
             tk2.metric("🏦 종합소득세 대비 권장 적립액 (6.6%)", f"{est_income_tax_reserve:,}원")
             tk3.metric("💰 세금 통장에 미리 빼둘 총액", f"{est_vat + est_income_tax_reserve:,}원")
 
-        with sub_f4:
+        with sub_f5:
             st.subheader("📊 구글 시트 원본 데이터 & 바로가기")
             st.markdown(f"👉 **[여기를 클릭해 내 구글 시트(상품관리 및 월별 수익장부) 바로 열기]({SHEET_BASE_URL}/edit)**")
             display_raw = [c for c in df.columns if not c.endswith("_num") and c != "상품선택"]
