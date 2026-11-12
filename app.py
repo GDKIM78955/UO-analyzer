@@ -19,7 +19,7 @@ KST = timezone(timedelta(hours=9))
 today = datetime.now(KST).date()
 
 # ==========================================
-# 1. 핵심 데이터베이스 (시즌 기념일 / 지재권 금지어 / KC·식약처 인증 판독 DB)
+# 1. 핵심 데이터베이스 (시즌 기념일 / 지재권 금지어 / KC인증 / 도서산간 키워드)
 # ==========================================
 SEASONAL_EVENTS = [
     {"month": 1, "day": 1, "name": "신정 / 새해 다짐 시즌", "items": "다이어리, 플래너, 홈트레이닝 용품, 독서대, 영양제 케이스", "keywords": "새해선물, 갓생템, 다이어리꾸미기, 홈트기구"},
@@ -96,6 +96,8 @@ KC_CERT_RULES = [
         "risk_level": "🟢 안전 소싱군 (초보 위탁판매자 강력 추천 카테고리)",
     },
 ]
+
+ISLAND_KEYWORDS = ["제주", "서귀포", "울릉", "백령", "연평", "대청", "덕적", "자월", "영흥", "완도", "진도", "신안", "흑산", "비금", "도초", "임자", "자은", "암태", "안좌", "팔금", "추자", "우도", "거문", "욕지", "사량", "조도", "선유", "어청", "위도"]
 
 
 def get_upcoming_events(ref_date):
@@ -411,8 +413,8 @@ try:
                 "판매가": 22500,
                 "배송비": 3000,
                 "블로그홍보링크": "https://cafe.naver.com/mycafe/2005",
-                "누적판매수량": 15,
-                "광고및기타지출": 10000,
+                "누적판매수량": 2,
+                "광고및기타지출": 18000,
             },
         ])
 
@@ -445,17 +447,17 @@ try:
 
     with st.sidebar:
         st.markdown("## 🛒 위탁판매 컨트롤 타워")
-        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 22대 기능 탑재)")
+        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 27대 기능 탑재)")
         st.markdown("---")
 
         main_menu = st.radio(
             "📂 작업할 워크스페이스를 선택하세요",
             [
                 "📅 1. 소싱 캘린더 & KC인증 판독",
-                "🚨 2. 품절·경쟁사·도매처 성적표",
-                "📦 3. 발주·송장·CS·리뷰답글",
-                "🎨 4. 마케팅·UTM·배너·지재권",
-                "💰 5. 수익장부·세트마진·ROAS·세금",
+                "🚨 2. 품절·성적표·좀비상품 진단",
+                "📦 3. 발주·도서산간·송장·CS·리뷰",
+                "🎨 4. 마케팅·Top3기획전·후킹·UTM",
+                "💰 5. 수익장부·등급진단·세트·세금",
             ],
         )
 
@@ -471,7 +473,7 @@ try:
             st.cache_data.clear()
             st.rerun()
 
-    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (22대 기능 마스터 버전)")
+    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (27대 기능 완전체)")
     golden_events = [e for e in upcoming_list if e["d_day"] <= 38]
     if golden_events:
         ge = golden_events[0]
@@ -481,7 +483,7 @@ try:
         )
 
     # ==================================================================================
-    # MENU 1: 📅 소싱 캘린더 & KC인증 판독 (시즌 달력 + KC/식약처/전파인증 판독기)
+    # MENU 1: 📅 소싱 캘린더 & KC인증 판독
     # ==================================================================================
     if main_menu == "📅 1. 소싱 캘린더 & KC인증 판독":
         sub_s1, sub_s2 = st.tabs([
@@ -583,11 +585,6 @@ try:
 
         with sub_s2:
             st.subheader("🛡️ 소싱 전 필수! KC인증·전파인증·식약처 대상 품목 자동 판독기")
-            st.write(
-                "도매처에서 상품을 가져올 때 **인증 번호가 유효한지 반드시 확인해야 하는 위험 품목**인지, "
-                "인증 없이 마음 편히 팔아도 되는 **안전 품목**인지 상품명만 넣으면 즉시 판독합니다."
-            )
-
             kc_input = st.text_input(
                 "🔍 소싱하려는 상품명 또는 품목 키워드를 입력하세요",
                 value="충전식 손난로 보조배터리 / 어린이 크리스마스 장난감 / 캠핑 우드 테이블",
@@ -602,46 +599,32 @@ try:
             if matched_rules:
                 for rule, hits in matched_rules:
                     if "🔴" in rule["risk_level"]:
-                        st.error(
-                            f"**{rule['risk_level']} | {rule['category']}** (감지 단어: `{', '.join(hits)}`)\n\n"
-                            f"- **필수 확인 인증:** `{rule['cert_name']}`\n"
-                            f"- **소싱 체크리스트:**\n{rule['check_point']}"
-                        )
+                        st.error(f"**{rule['risk_level']} | {rule['category']}** (감지 단어: `{', '.join(hits)}`)\n\n- **필수 확인 인증:** `{rule['cert_name']}`\n- **소싱 체크리스트:**\n{rule['check_point']}")
                     elif "🟠" in rule["risk_level"]:
-                        st.warning(
-                            f"**{rule['risk_level']} | {rule['category']}** (감지 단어: `{', '.join(hits)}`)\n\n"
-                            f"- **필수 확인 인증:** `{rule['cert_name']}`\n"
-                            f"- **소싱 체크리스트:**\n{rule['check_point']}"
-                        )
+                        st.warning(f"**{rule['risk_level']} | {rule['category']}** (감지 단어: `{', '.join(hits)}`)\n\n- **필수 확인 인증:** `{rule['cert_name']}`\n- **소싱 체크리스트:**\n{rule['check_point']}")
                     else:
-                        st.success(
-                            f"**{rule['risk_level']} | {rule['category']}** (감지 단어: `{', '.join(hits)}`)\n\n"
-                            f"- **인증 안내:** `{rule['cert_name']}`\n"
-                            f"- **소싱 체크리스트:**\n{rule['check_point']}"
-                        )
+                        st.success(f"**{rule['risk_level']} | {rule['category']}** (감지 단어: `{', '.join(hits)}`)\n\n- **인증 안내:** `{rule['cert_name']}`\n- **소싱 체크리스트:**\n{rule['check_point']}")
             else:
                 st.info("🟢 특별 위험 키워드가 감지되지 않았습니다. 아래 5대 카테고리별 필수 인증 기준표를 참고해 안전하게 소싱하세요.")
 
-            st.markdown("#### 📋 위탁판매자 필수 숙지 5대 카테고리 인증 요약표")
             st.dataframe(
                 pd.DataFrame([{
-                    "위험도": r["risk_level"],
-                    "품목 카테고리": r["category"],
-                    "필수 인증 명칭": r["cert_name"],
-                    "주요 해당 키워드": ", ".join(r["keywords"][:8]),
+                    "위험도": r["risk_level"], "품목 카테고리": r["category"],
+                    "필수 인증 명칭": r["cert_name"], "주요 해당 키워드": ", ".join(r["keywords"][:8]),
                 } for r in KC_CERT_RULES]),
                 use_container_width=True, hide_index=True
             )
 
     # ==================================================================================
-    # MENU 2: 🚨 품절·경쟁사·도매처 성적표 (품절스캔 + 블로그역추적 + 경쟁사비교 + 도매처성적표)
+    # MENU 2: 🚨 품절·성적표·좀비상품 진단 (품절스캔 + 블로그역추적 + 경쟁사비교 + 도매처성적표 + 좀비상품처방전)
     # ==================================================================================
-    elif main_menu == "🚨 2. 품절·경쟁사·도매처 성적표":
-        sub_m1, sub_m2, sub_m3, sub_m4 = st.tabs([
+    elif main_menu == "🚨 2. 품절·성적표·좀비상품 진단":
+        sub_m1, sub_m2, sub_m3, sub_m4, sub_m5 = st.tabs([
             "🔍 1. 도매처 품절·단종·가격인상 스캔",
             "📝 2. 블로그·카페 죽은 홍보링크 역추적",
             "⚔️ 3. 경쟁사 스토어 최저가 비교·감시",
             "🏆 4. 도매처(공급사)별 수익성·안정성 성적표",
+            "🧟 5. 좀비 상품(판매부진·적자) 자동 진단 & 리뉴얼 처방전",
         ])
 
         with sub_m1:
@@ -752,8 +735,6 @@ try:
 
         with sub_m4:
             st.subheader("🏆 도매처(공급사)별 수익 기여도 & 안정성 성적표")
-            st.write("어느 도매처 상품이 내 스토어에서 가장 많은 순수익을 내고 있는지, 평균 마진율이 가장 높은 S급 도매처가 어디인지 자동 평가합니다.")
-
             vendor_stats = {}
             for idx, row in df.iterrows():
                 v_name = str(row.get("도매처명", "기타")).strip() or "기타"
@@ -785,22 +766,59 @@ try:
                     grade = "🔴 C등급 (교체 검토)"
 
                 vendor_rows.append({
-                    "도매처명": v_name,
-                    "종합 평가 등급": grade,
-                    "등록 상품 수": f"{st_d['items']}종",
-                    "총 판매수량": f"{st_d['qty']:,}개",
-                    "총 매출액": f"{st_d['rev']:,}원",
-                    "누적 순수익 기여": f"{st_d['profit']:,}원",
-                    "평균 순마진율": f"{avg_roi:.1f}%",
+                    "도매처명": v_name, "종합 평가 등급": grade, "등록 상품 수": f"{st_d['items']}종",
+                    "총 판매수량": f"{st_d['qty']:,}개", "총 매출액": f"{st_d['rev']:,}원",
+                    "누적 순수익 기여": f"{st_d['profit']:,}원", "평균 순마진율": f"{avg_roi:.1f}%",
                 })
             st.dataframe(pd.DataFrame(vendor_rows), use_container_width=True, hide_index=True)
 
+        with sub_m5:
+            st.subheader("🧟 좀비 상품(판매 부진 · 광고비 적자) 자동 진단 & 리뉴얼 처방전")
+            st.write(
+                "스마트스토어에 등록된 상품 중 **판매량이 저조하거나 광고비 대비 적자가 나는 좀비 상품**을 방치하면 스토어 전체의 노출 지수가 하락합니다. "
+                "상품별 상태에 따른 **맞춤형 회생 처방전**을 확인하세요."
+            )
+
+            zombie_rows = []
+            for idx, row in df.iterrows():
+                p_name = str(row.get("상품명", f"상품 {idx+1}"))
+                w_p = int(row.get("도매원가_num", 0))
+                s_p = int(row.get("판매가_num", 0))
+                qty = int(row.get("누적판매수량_num", 0))
+                ad_c = int(row.get("광고및기타지출_num", 0))
+                fee = int(round(s_p * 0.056))
+                unit_m = s_p - w_p - fee
+                net_p = (unit_m * qty) - ad_c
+
+                if net_p < 0:
+                    z_status = "🔴 적자 좀비 (즉시 수술 필요)"
+                    rx = "1) 유료 검색광고 즉시 중단! 2) 4번 메뉴에서 '세부 키워드'로 상품명 변경 후 블로그 후기 유입으로 전환"
+                elif qty <= 5:
+                    z_status = "🟠 판매 부진 (노출 리뉴얼 요망)"
+                    rx = "1) 기존 상품 삭제 후 '신상품 버프'를 받기 위해 썸네일 배지 합성 + 새 상품명으로 재등록 권장"
+                elif unit_m < 3000:
+                    z_status = "🟡 박리다매형 (객단가 상승 필요)"
+                    rx = "1) 5번 메뉴의 '1+1 세트/무료배송 설계기'를 활용해 2개 묶음 옵션 추가로 객단가 2배 인상 권장"
+                else:
+                    z_status = "🟢 건강 효자 상품 (유지·확장)"
+                    rx = "1) 품절 방어 최우선! 2) 블로그/카페에 '실구매 베스트 리뷰 모음 인포그래픽' 추가 발행으로 1위 굳히기"
+
+                zombie_rows.append({
+                    "진단 등급": z_status,
+                    "상품명": p_name,
+                    "누적 판매량": f"{qty}개",
+                    "개당 순마진": f"{unit_m:,}원",
+                    "누적 순수익": f"{net_p:,}원",
+                    "맞춤 리뉴얼 처방전 (Action Plan)": rx,
+                })
+            st.dataframe(pd.DataFrame(zombie_rows), use_container_width=True, hide_index=True)
+
     # ==================================================================================
-    # MENU 3: 📦 발주·송장·CS·리뷰답글 (발주변환 + 송장병합 + 블랙컨슈머 + CS복사함 + 리뷰답글생성기)
+    # MENU 3: 📦 발주·도서산간·송장·CS·리뷰
     # ==================================================================================
-    elif main_menu == "📦 3. 발주·송장·CS·리뷰답글":
+    elif main_menu == "📦 3. 발주·도서산간·송장·CS·리뷰":
         sub_o1, sub_o2, sub_o3, sub_o4, sub_o5 = st.tabs([
-            "📦 1. 주문서 ➡️ 도매처 발주 변환",
+            "📦 1. 주문서 ➡️ 도매처 발주 변환 (+도서산간·진상 경보)",
             "🚚 2. 도매처 송장 ➡️ 스토어 일괄 발송 변환",
             "🛡️ 3. 상습 반품·진상 고객 요주의 DB",
             "💬 4. 고객 CS 답변 1초 복사함",
@@ -811,9 +829,9 @@ try:
             st.session_state["blacklist_keywords"] = "010-0000-0000, 상습파손클레임, 허위반품요구"
 
         with sub_o1:
-            st.subheader("📦 스마트스토어 주문서 ➡️ 도매처 발주 엑셀 자동 변환 (+요주의 고객 사전 감지)")
+            st.subheader("📦 스마트스토어 주문서 ➡️ 도매처 발주 엑셀 변환 (+🏝️제주·도서산간 추가운임 & 진상고객 자동 감지)")
             uploaded_order_file = st.file_uploader(
-                "📂 스마트스토어 주문내역 파일 업로드 (.csv 또는 .xlsx 지원 - 미업로드 시 샘플 2건으로 즉시 테스트)",
+                "📂 스마트스토어 주문내역 파일 업로드 (.csv 또는 .xlsx 지원 - 미업로드 시 제주도 포함 샘플 3건으로 즉시 테스트)",
                 type=["csv", "xlsx"], key="ord_up"
             )
 
@@ -843,6 +861,12 @@ try:
                         "수취인연락처1": "010-9876-5432", "우편번호": "06236",
                         "배송지": "서울특별시 강남구 테헤란로 152 3층", "배송메세지": "경비실에 맡겨주세요.",
                     },
+                    {
+                        "상품주문번호": "202611120003", "상품명": "크리스마스 미니 트리 LED 풀세트",
+                        "옵션정보": "기본형 풀세트", "수량": 1, "수취인명": "박제주",
+                        "수취인연락처1": "010-5555-7777", "우편번호": "63000",
+                        "배송지": "제주특별자치도 제주시 첨단로 242", "배송메세지": "선물용이니 안전배송 부탁드려요.",
+                    },
                 ])
 
             if not raw_orders.empty:
@@ -870,17 +894,35 @@ try:
                 memos = pick_col(raw_orders, ["배송메세지", "배송메모", "요청사항"], "안전배송 부탁드립니다.")
 
                 converted_rows = []
+                island_alert_cnt = 0
                 for i in range(len(raw_orders)):
                     pn = p_names.iloc[i].strip()
+                    addr_str = addrs.iloc[i]
+                    zip_str = zips.iloc[i].strip()
                     w_vendor, w_link, w_cost = sheet_map.get(pn, ("직접확인", "", 0))
-                    row_concat = f"{recs.iloc[i]} {phones.iloc[i]} {addrs.iloc[i]}"
+                    row_concat = f"{recs.iloc[i]} {phones.iloc[i]} {addr_str}"
+
                     risk_flag = "🚨 요주의 고객 확인!" if any(bt in row_concat for bt in bl_tokens) else "🟢 정상"
+                    is_island = any(ik in addr_str for ik in ISLAND_KEYWORDS) or zip_str.startswith("63") or zip_str.startswith("402")
+                    if is_island:
+                        island_alert_cnt += 1
+                        ship_zone = "🏝️ 도서산간/제주 (추가운임 3~5천원 확인!)"
+                    else:
+                        ship_zone = "🚚 일반지역"
+
                     converted_rows.append({
+                        "배송권역(운임경보)": ship_zone,
                         "고객검증": risk_flag, "상품주문번호": ord_nos.iloc[i], "매칭도매처": w_vendor,
-                        "받는사람(수취인)": recs.iloc[i], "휴대폰번호": phones.iloc[i], "우편번호": zips.iloc[i],
-                        "배송지주소": addrs.iloc[i], "주문상품명": pn, "옵션명": opts.iloc[i],
+                        "받는사람(수취인)": recs.iloc[i], "휴대폰번호": phones.iloc[i], "우편번호": zip_str,
+                        "배송지주소": addr_str, "주문상품명": pn, "옵션명": opts.iloc[i],
                         "발주수량": qtys.iloc[i], "배송메모": memos.iloc[i], "도매처상품링크": w_link,
                     })
+
+                if island_alert_cnt > 0:
+                    st.warning(
+                        f"🏝️ **[제주·도서산간 주문 {island_alert_cnt}건 감지됨!]** "
+                        "도매처 발주 시 추가 배송비(3,000~5,000원)가 청구되어 역마진이 날 수 있으니, 고객이 추가배송비를 결제했는지 반드시 확인하세요!"
+                    )
 
                 df_conv = pd.DataFrame(converted_rows)
                 st.dataframe(df_conv, use_container_width=True, hide_index=True)
@@ -962,8 +1004,6 @@ try:
 
         with sub_o5:
             st.subheader("⭐ 스마트스토어 고객 리뷰 1:1 맞춤 답글(사장님 댓글) 생성기")
-            st.write("상세페이지를 보러 온 예비 구매자들은 **사장님이 리뷰에 얼마나 정성껏 답글을 달았는지, 특히 불만 리뷰에 어떻게 대처했는지**를 보고 결제를 결정합니다.")
-
             rv_c1, rv_c2 = st.columns([1.0, 1.3], gap="large")
             with rv_c1:
                 rv_prod = st.text_input("리뷰 달린 상품명", value="캠핑용 초경량 감성 우드 롤테이블")
@@ -971,34 +1011,24 @@ try:
                 rv_benefit = st.text_input("재구매 유도 혜택 안내", value="스토어 찜 & 소식받기 1,000원 할인 쿠폰")
 
             with rv_c2:
-                reply_5star = (
-                    f"안녕하세요 고객님! 바쁘신 와중에도 정성스러운 별점 5점 리뷰를 남겨주셔서 진심으로 감사드립니다 😊\n"
-                    f"구매하신 [{rv_prod}]의 '{rv_point}' 부분에 만족하셨다니 준비한 보람이 느껴져 정말 기쁩니다!\n"
-                    f"앞으로도 사용하시면서 궁금한 점이 있으시면 언제든 톡톡 주세요. 다음 방문 시 [{rv_benefit}]도 꼭 챙겨서 알뜰하게 이용해 보세요! 늘 행복하세요 💚"
-                )
-                reply_3star = (
-                    f"안녕하세요 고객님! 소중한 시간을 내어 솔직한 사용 후기를 남겨주셔서 감사드립니다.\n"
-                    f"[{rv_prod}] 사용 중 말씀해주신 소중한 의견은 공급처 및 검수팀과 즉시 공유하여 한층 더 만족스러운 품질로 개선하겠습니다!\n"
-                    f"혹시 사용하시면서 추가로 불편하신 점이 있다면 언제든 네이버 톡톡으로 말씀해 주세요. 끝까지 책임지고 안내해 드리겠습니다. 감사합니다!"
-                )
-                reply_1star = (
-                    f"안녕하세요 고객님, 먼저 기대하고 주문해주신 [{rv_prod}] 상품으로 인해 불편과 실망을 드려 고개 숙여 사과드립니다.\n"
-                    f"출고 전 검수를 거치고 있으나 배송 과정 또는 초기 불량으로 인해 불편을 겪으신 것 같아 마음이 무겁습니다.\n"
-                    f"번거로우시겠지만 네이버 톡톡으로 연락 주시면 판매자 100% 부담으로 **즉시 새 상품 맞교환 또는 전액 환불**을 가장 빠르게 처리해 드리겠습니다. 다시 한번 죄송합니다."
-                )
-                render_copy_box("😍 1. [별점 5점 극찬 리뷰용] 재구매 & 단골 유도 감사 답글", reply_5star, "rv5", "#03c75a", 195)
-                render_copy_box("🙂 2. [별점 3~4점 아쉬움 리뷰용] 피드백 수용 & 신뢰도 상승 답글", reply_3star, "rv3", "#2563eb", 195)
-                render_copy_box("🙇‍♂️ 3. [별점 1~2점 불만/불량 리뷰용] 다른 예비 구매자를 안심시키는 명품 사과 답글", reply_1star, "rv1", "#dc2626", 205)
+                reply_5star = f"안녕하세요 고객님! 바쁘신 와중에도 정성스러운 별점 5점 리뷰를 남겨주셔서 진심으로 감사드립니다 😊\n구매하신 [{rv_prod}]의 '{rv_point}' 부분에 만족하셨다니 준비한 보람이 느껴져 정말 기쁩니다!\n다음 방문 시 [{rv_benefit}]도 꼭 챙겨서 알뜰하게 이용해 보세요! 늘 행복하세요 💚"
+                reply_3star = f"안녕하세요 고객님! 소중한 시간을 내어 솔직한 사용 후기를 남겨주셔서 감사드립니다.\n[{rv_prod}] 사용 중 말씀해주신 소중한 의견은 공급처 및 검수팀과 즉시 공유하여 한층 더 만족스러운 품질로 개선하겠습니다!\n추가로 불편하신 점이 있다면 언제든 네이버 톡톡으로 말씀해 주세요. 감사합니다!"
+                reply_1star = f"안녕하세요 고객님, 먼저 기대하고 주문해주신 [{rv_prod}] 상품으로 인해 불편과 실망을 드려 고개 숙여 사과드립니다.\n번거로우시겠지만 네이버 톡톡으로 연락 주시면 판매자 100% 부담으로 **즉시 새 상품 맞교환 또는 전액 환불**을 가장 빠르게 처리해 드리겠습니다. 다시 한번 죄송합니다."
+                render_copy_box("😍 1. [별점 5점 극찬 리뷰용] 재구매 & 단골 유도 감사 답글", reply_5star, "rv5", "#03c75a", 190)
+                render_copy_box("🙂 2. [별점 3~4점 아쉬움 리뷰용] 피드백 수용 & 신뢰도 상승 답글", reply_3star, "rv3", "#2563eb", 190)
+                render_copy_box("🙇‍♂️ 3. [별점 1~2점 불만/불량 리뷰용] 다른 예비 구매자를 안심시키는 사과 답글", reply_1star, "rv1", "#dc2626", 195)
                 # ==================================================================================
-    # MENU 4: 🎨 마케팅·UTM·배너·지재권 (인포그래픽 + 썸네일합성 + 공지배너 + SEO/지재권 + UTM 추적링크)
+    # MENU 4: 🎨 마케팅·Top3기획전·후킹·UTM (5종인포 + Top3큐레이션 + 3초후킹브릿지 + 썸네일 + 공지배너 + SEO/지재권 + UTM)
     # ==================================================================================
-    elif main_menu == "🎨 4. 마케팅·UTM·배너·지재권":
-        sub_mk1, sub_mk2, sub_mk3, sub_mk4, sub_mk5 = st.tabs([
-            "🎨 1. 5종 블로그·카페 인포그래픽 제작",
-            "🖼️ 2. 대표 썸네일(1000x1000) 배지 합성기",
-            "📢 3. 상세페이지 상·하단 공지 배너 생성기",
-            "🚀 4. SEO 상품명·원고 & 상표권/금지어 검사기",
-            "🔗 5. 블로그·카페 유입 추적 링크(nt_source) 생성기",
+    elif main_menu == "🎨 4. 마케팅·Top3기획전·후킹·UTM":
+        sub_mk1, sub_mk_top3, sub_mk_hook, sub_mk2, sub_mk3, sub_mk4, sub_mk5 = st.tabs([
+            "🎨 1. 5종 단품 인포그래픽",
+            "🏆 2. Top 3 묶음 기획전 카드",
+            "⚡ 3. 상세페이지 3초 후킹 브릿지",
+            "🖼️ 4. 썸네일(1000x1000) 합성",
+            "📢 5. 상세 상·하단 공지 배너",
+            "🚀 6. SEO 상품명·원고·금지어",
+            "🔗 7. 블로그·카페 UTM 추적링크",
         ])
 
         with sub_mk1:
@@ -1276,6 +1306,160 @@ try:
                 """
                 components.html(component_html, height=880, scrolling=True)
 
+        # ------------------------------------------
+        # 신규 기능: 블로그·카페 '연관 상품 Top 3 큐레이션 기획전' 카드 생성기
+        # ------------------------------------------
+        with sub_mk_top3:
+            st.subheader("🏆 블로그·카페 '연관 상품 묶음 홍보(큐레이션 Top 3)' 기획전 카드 생성기")
+            st.write("블로그 글 하나에 상품 1개만 올리는 것보다 **시즌 추천템 BEST 3를 한 장의 비교 카드로 묶어 소개**하면 클릭률과 동시 구매율이 2배 이상 높아집니다.")
+
+            t3_edit, t3_prev = st.columns([1.05, 1.25], gap="large")
+            with t3_edit:
+                curation_title = st.text_input("🎉 기획전 메인 타이틀", value="🔥 올겨울 후회 없는 월동준비 필수템 BEST 3 총정리")
+                curation_sub = st.text_input("💬 기획전 서브 설명", value="가성비·실용성·후기 검증 완료! 가장 인기 있는 3종만 모았습니다.")
+
+                n_rows = len(df)
+                r0 = df.iloc[0] if n_rows > 0 else {}
+                r1 = df.iloc[1] if n_rows > 1 else r0
+                r2 = df.iloc[2] if n_rows > 2 else r0
+
+                st.markdown("##### 🥇 BEST 1 상품 설정")
+                b1_name = st.text_input("상품 1 이름", value=str(r0.get("상품명", "충전식 손난로 보조배터리")))
+                b1_price = st.number_input("상품 1 판매가", value=int(r0.get("판매가_num", 17900)), step=500)
+                b1_desc = st.text_input("상품 1 한줄 매력", value="출퇴근길 주머니 속 온기! 보조배터리 겸용 가성비 1위")
+                b1_url = st.text_input("상품 1 스토어 링크", value=str(r0.get("스마트스토어링크", "https://smartstore.naver.com/")))
+
+                st.markdown("##### 🥈 BEST 2 상품 설정")
+                b2_name = st.text_input("상품 2 이름", value=str(r1.get("상품명", "크리스마스 미니 트리 LED 풀세트")))
+                b2_price = st.number_input("상품 2 판매가", value=int(r1.get("판매가_num", 26900)), step=500)
+                b2_desc = st.text_input("상품 2 한줄 매력", value="전구+오너먼트 풀구성! 거실 분위기 1분 만에 변신")
+                b2_url = st.text_input("상품 2 스토어 링크", value=str(r1.get("스마트스토어링크", "https://smartstore.naver.com/")))
+
+                st.markdown("##### 🥉 BEST 3 상품 설정")
+                b3_name = st.text_input("상품 3 이름", value=str(r2.get("상품명", "겨울 방한 가습기 대용량 무드등")))
+                b3_price = st.number_input("상품 3 판매가", value=int(r2.get("판매가_num", 22500)), step=500)
+                b3_desc = st.text_input("상품 3 한줄 매력", value="건조한 침실 필수템! 은은한 무드등+초음파 풍부한 가습")
+                b3_url = st.text_input("상품 3 스토어 링크", value=str(r2.get("스마트스토어링크", "https://smartstore.naver.com/")))
+
+            top3_card_html = f"""
+<table width="100%" style="max-width:640px;margin:0 auto;border-collapse:collapse;font-family:'Malgun Gothic',sans-serif;border:3px solid #1e293b;background:#ffffff;border-radius:12px;overflow:hidden;">
+    <tr bgcolor="#1e293b">
+        <td style="padding:20px 24px;color:#ffffff;text-align:center;">
+            <div style="font-size:12px;color:#facc15;font-weight:900;letter-spacing:1px;margin-bottom:4px;">MD CURATION BEST 3 SELECTION</div>
+            <div style="font-size:21px;font-weight:900;margin-bottom:6px;">{curation_title}</div>
+            <div style="font-size:13.5px;color:#cbd5e1;">{curation_sub}</div>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding:18px 22px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+            <span style="background:#e11d48;color:#fff;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:900;">🥇 BEST 1</span>
+            <div style="font-size:18px;font-weight:900;color:#111;margin:8px 0 4px 0;">{b1_name}</div>
+            <div style="font-size:13.5px;color:#475569;margin-bottom:10px;">✔️ {b1_desc}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:20px;font-weight:900;color:#e11d48;">특별가 {b1_price:,}원</span>
+                <a href="{b1_url}" target="_blank" style="background:#03c75a;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:800;">👉 스토어 보러가기</a>
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding:18px 22px;border-bottom:1px solid #e2e8f0;background:#ffffff;">
+            <span style="background:#2563eb;color:#fff;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:900;">🥈 BEST 2</span>
+            <div style="font-size:18px;font-weight:900;color:#111;margin:8px 0 4px 0;">{b2_name}</div>
+            <div style="font-size:13.5px;color:#475569;margin-bottom:10px;">✔️ {b2_desc}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:20px;font-weight:900;color:#2563eb;">특별가 {b2_price:,}원</span>
+                <a href="{b2_url}" target="_blank" style="background:#03c75a;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:800;">👉 스토어 보러가기</a>
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding:18px 22px;background:#f8fafc;">
+            <span style="background:#0d9488;color:#fff;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:900;">🥉 BEST 3</span>
+            <div style="font-size:18px;font-weight:900;color:#111;margin:8px 0 4px 0;">{b3_name}</div>
+            <div style="font-size:13.5px;color:#475569;margin-bottom:10px;">✔️ {b3_desc}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:20px;font-weight:900;color:#0d9488;">특별가 {b3_price:,}원</span>
+                <a href="{b3_url}" target="_blank" style="background:#03c75a;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:800;">👉 스토어 보러가기</a>
+            </div>
+        </td>
+    </tr>
+</table>
+"""
+            with t3_prev:
+                st.markdown("#### 👀 Top 3 큐레이션 프리뷰 & 추출")
+                t3_comp = f"""
+                <!DOCTYPE html><html><head><meta charset="utf-8">
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+                <style>
+                    body {{ margin:0; padding:0; font-family:'Malgun Gothic',sans-serif; background:transparent; }}
+                    .btn {{ width:100%; padding:15px; font-size:16px; font-weight:900; border:none; border-radius:8px; cursor:pointer; margin-bottom:8px; color:#fff; }}
+                </style></head>
+                <body>
+                    <button class="btn" style="background:#111827;" onclick="dlT3()">📸 Top 3 기획전 카드 PNG 사진으로 저장</button>
+                    <button class="btn" style="background:#03c75a;" onclick="cpT3()">📋 블로그/카페 표 서식 통째로 복사 (Ctrl+V)</button>
+                    <div id="t3Msg" style="display:none;text-align:center;font-weight:bold;color:#16a34a;margin-bottom:8px;">✅ 복사 완료! 블로그에 붙여넣으세요!</div>
+                    <div id="t3Wrap" style="background:#fff;padding:10px;border-radius:12px;">{top3_card_html}</div>
+                    <script>
+                    function cpT3() {{
+                        const r = document.createRange(); r.selectNode(document.getElementById('t3Wrap'));
+                        const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+                        document.execCommand('copy'); s.removeAllRanges();
+                        document.getElementById('t3Msg').style.display='block';
+                    }}
+                    function dlT3() {{
+                        html2canvas(document.getElementById('t3Wrap'), {{ scale:2, backgroundColor:'#ffffff' }}).then(c => {{
+                            const a = document.createElement('a'); a.download='Top3_큐레이션_기획전.png'; a.href=c.toDataURL('image/png'); a.click();
+                        }});
+                    }}
+                    </script>
+                </body></html>
+                """
+                components.html(t3_comp, height=780, scrolling=True)
+
+        # ------------------------------------------
+        # 신규 기능: 도매처 상세페이지 '통이미지' 사이 3초 후킹 설득 문구 삽입기
+        # ------------------------------------------
+        with sub_mk_hook:
+            st.subheader("⚡ 도매처 상세페이지 '통이미지' 3초 후킹 설득 브릿지 생성기")
+            st.write(
+                "도매처가 주는 똑같은 상세페이지 사진만 올려두면 고객이 스크롤만 내리다 나갑니다. "
+                "**상세페이지 맨 위(도입부)와 사진 중간에 이 '설득 브릿지 카드(PNG 또는 표)'를 끼워 넣으면 구매 전환율이 2배 이상 상승**합니다!"
+            )
+
+            hk1, hk2 = st.columns([1.0, 1.3], gap="large")
+            with hk1:
+                hk_problem = st.text_input("😟 고객이 겪던 기존 불편함 (문제 제기)", value="비슷해 보이는 저가형 샀다가 하루 만에 고장 나고 후회하셨나요?")
+                hk_solution = st.text_input("💡 우리 상품만의 확실한 해결책", value="저희 스토어는 출고 전 1:1 직접 작동 검수를 거친 정품만 발송합니다!")
+                hk_guarantee = st.text_input("🛡️ 고객 안심 보장 약속", value="수령 후 마음에 안 드시거나 초기 불량 시 100% 무료 맞교환 보장")
+
+            hook_html = f"""
+            <!DOCTYPE html><html><head><meta charset="utf-8">
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+            </head><body style="margin:0;font-family:'Malgun Gothic',sans-serif;">
+                <button onclick="dlHook()" style="width:100%;background:#e11d48;color:#fff;border:none;padding:15px;border-radius:8px;font-size:16px;font-weight:900;cursor:pointer;margin-bottom:12px;">
+                    📸 상세페이지 삽입용 '3초 후킹 브릿지' PNG 이미지 다운로드
+                </button>
+                <div id="hookBox" style="background:#111827;color:#ffffff;padding:30px 26px;border-radius:14px;text-align:center;max-width:650px;margin:0 auto;border:4px solid #facc15;">
+                    <div style="background:#e11d48;color:#fff;display:inline-block;padding:5px 16px;border-radius:20px;font-size:13px;font-weight:900;margin-bottom:14px;">잠깐! 결제 전 꼭 확인하세요</div>
+                    <div style="font-size:21px;font-weight:900;color:#fca5a5;line-height:1.4;margin-bottom:18px;">"{hk_problem}"</div>
+                    <div style="background:#1f2937;padding:18px;border-radius:10px;border-left:5px solid #34d399;text-align:left;margin-bottom:14px;">
+                        <div style="font-size:13px;color:#34d399;font-weight:800;margin-bottom:4px;">✅ WHY CHOOSE US (차별화 포인트)</div>
+                        <div style="font-size:16px;font-weight:900;color:#ffffff;line-height:1.5;">{hk_solution}</div>
+                    </div>
+                    <div style="font-size:14.5px;font-weight:800;color:#facc15;">🛡️ 약속드립니다: {hk_guarantee}</div>
+                </div>
+                <script>
+                function dlHook() {{
+                    html2canvas(document.getElementById('hookBox'), {{ scale:2, backgroundColor:'#111827' }}).then(c => {{
+                        const a = document.createElement('a'); a.download='상세페이지_3초후킹브릿지.png'; a.href=c.toDataURL('image/png'); a.click();
+                    }});
+                }}
+                </script>
+            </body></html>
+            """
+            with hk2:
+                components.html(hook_html, height=410, scrolling=False)
+
         with sub_mk2:
             st.subheader("🖼️ 스마트스토어 대표 썸네일(1000x1000 정사각형) 프레임·배지 합성 스튜디오")
             th_c1, th_c2 = st.columns([1.0, 1.3], gap="large")
@@ -1489,11 +1673,6 @@ try:
 
         with sub_mk5:
             st.subheader("🔗 블로그·카페 유입 경로 추적 링크(네이버 애널리틱스 `nt_source` 파라미터) 생성기")
-            st.write(
-                "스마트스토어 센터 **[마케팅분석 -> 사용자정의채널]**에서 내 블로그 글에서 몇 명이 들어와 결제했는지, "
-                "카페 공지글에서 몇 명이 결제했는지 정확히 분리해서 추적할 수 있는 전용 링크를 만들어 줍니다."
-            )
-
             utm_c1, utm_c2 = st.columns([1.0, 1.3], gap="large")
             with utm_c1:
                 base_store_link = st.text_input("내 스마트스토어 상품 원본 URL", value="https://smartstore.naver.com/mystore/products/10000001")
@@ -1507,22 +1686,20 @@ try:
             tracked_url = f"{base_store_link.strip()}{sep}nt_source={src_code}&nt_medium={med_code}&nt_detail={nt_detail.strip()}"
 
             with utm_c2:
-                render_copy_box(
-                    "🎯 생성된 스마트스토어 유입 추적 전용 URL (인포그래픽/블로그 링크에 이 주소를 넣으세요!)",
-                    tracked_url, "utm_box", "#6d28d9", 180
-                )
-                st.info("💡 **활용 팁:** 위 추적 URL을 복사해 **[1. 5종 인포그래픽 제작]** 탭의 '스마트스토어 구매 링크' 칸에 붙여넣으면, 어떤 블로그 글과 인포그래픽에서 실제 매출이 터졌는지 스마트스토어 통계에 100% 기록됩니다!")
+                render_copy_box("🎯 생성된 스마트스토어 유입 추적 전용 URL", tracked_url, "utm_box", "#6d28d9", 180)
+                st.info("💡 위 추적 URL을 복사해 [인포그래픽 제작] 탭의 구매 링크 칸에 넣으면 어떤 블로그 글에서 결제가 일어났는지 스마트스토어 통계에 기록됩니다!")
 
     # ==================================================================================
-    # MENU 5: 💰 수익장부·세트마진·ROAS·세금 (장부 + 월별기록 + 1+1세트마진 + 마진/ROAS/세금 + 시트원본)
+    # MENU 5: 💰 수익장부·등급진단·세트·세금 (장부 + 월별기록 + 등급시뮬레이터 + 1+1세트 + 마진/ROAS/세금 + 시트원본)
     # ==================================================================================
-    elif main_menu == "💰 5. 수익장부·세트마진·ROAS·세금":
-        sub_f1, sub_f2, sub_f3, sub_f4, sub_f5 = st.tabs([
-            "💎 1. 실시간 수익장부 & 효자 랭킹",
-            "🗓️ 2. 월별 정산 마감 & 누적 그래프",
-            "🎁 3. 1+1 세트 구성 & 무료배송 전환 마진 설계기",
-            "🎯 4. 단품 마진 역산 · ROAS · 세금 계산기",
-            "📊 5. 구글 시트 원본 데이터 보기",
+    elif main_menu == "💰 5. 수익장부·등급진단·세트·세금":
+        sub_f1, sub_f2, sub_f_tier, sub_f3, sub_f4, sub_f5 = st.tabs([
+            "💎 1. 실시간 수익장부 & 랭킹",
+            "🗓️ 2. 월별 정산 마감 & 그래프",
+            "👑 3. 스마트스토어 등급 상승(파워/빅파워) 진단기",
+            "🎁 4. 1+1 세트 & 무료배송 마진 설계",
+            "🎯 5. 단품 마진 · ROAS · 세금 계산기",
+            "📊 6. 구글 시트 원본 보기",
         ])
 
         col_ym, col_fee_opt, col_extra_exp = st.columns(3)
@@ -1534,7 +1711,7 @@ try:
             extra_fixed_cost = st.number_input("🧾 이번 달 추가 고정 지출 (택배박스/프로그램비 등, 원)", value=0, step=5000)
 
         ledger_rows = []
-        total_rev, total_wholesale_cost, total_naver_fee, total_ad_cost = 0, 0, 0, 0
+        total_rev, total_wholesale_cost, total_naver_fee, total_ad_cost, total_qty_sold = 0, 0, 0, 0, 0
 
         for idx, row in df.iterrows():
             p_name = str(row.get("상품명", f"상품 {idx+1}"))
@@ -1558,6 +1735,7 @@ try:
             total_wholesale_cost += item_w_cost
             total_naver_fee += item_fee_cost
             total_ad_cost += ad_c
+            total_qty_sold += qty
 
             ledger_rows.append({
                 "상품명": p_name, "도매처": w_name, "판매단가": f"{s_p:,}원", "개당순마진": f"{unit_margin:,}원",
@@ -1684,12 +1862,58 @@ try:
                         """
                     components.html(f"<!DOCTYPE html><html><body style='margin:0;font-family:Malgun Gothic,sans-serif;'><div style='background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;'><div style='font-size:12px;color:#94a3b8;margin-bottom:10px;'>🟦 파란 바: 월 총매출액 | 🟩 초록 바: 월 최종 순수익</div>{m_bars_html}</div></body></html>", height=max(180, len(df_m_valid) * 62 + 50), scrolling=True)
 
-        with sub_f3:
-            st.subheader("🎁 객단가 2배 상승! 1+1(2개 묶음) & 무료배송 전환 마진 비교 설계기")
+        # ------------------------------------------
+        # 신규 기능: 스마트스토어 등급 상승(씨앗 -> 파워 -> 빅파워) 목표 달성 시뮬레이터
+        # ------------------------------------------
+        with sub_f_tier:
+            st.subheader("👑 스마트스토어 등급 상승 (씨앗 ➡️ 새싹 ➡️ 파워 ➡️ 빅파워) 달성 시뮬레이터")
             st.write(
-                "위탁판매에서 1개씩 팔면 도매처 배송비 때문에 마진이 적지만, **2개 구매 시 할인(또는 무료배송)을 걸어 합배송으로 출고하면 배송비가 한 번만 나가 순수익이 폭발적으로 증가**합니다."
+                "네이버 스마트스토어는 **최근 3개월 누적 판매 건수와 매출액**으로 매월 2일 등급이 산정됩니다. "
+                "**'파워' 등급 이상을 달성하면 상품에 파워 배지가 붙어 상위노출과 클릭률이 비약적으로 상승**합니다!"
             )
 
+            tr1, tr2, tr3 = st.columns(3)
+            with tr1:
+                curr_3m_cnt = st.number_input("최근 3개월 누적 판매 건수 (건)", value=int(total_qty_sold * 2), step=10)
+            with tr2:
+                curr_3m_rev = st.number_input("최근 3개월 누적 매출액 (원)", value=int(total_rev * 2), step=500000)
+            with tr3:
+                remain_days = st.slider("이번 달 등급 심사 마감까지 남은 일수 (일)", min_value=1, max_value=90, value=20)
+
+            # 스마트스토어 공식 등급 기준 (최근 3개월 합산)
+            tiers = [
+                ("🌱 새싹 등급", 100, 2000000),
+                ("⚡ 파워 등급 (1차 핵심 목표!)", 300, 8000000),
+                ("🔥 빅파워 등급", 1500, 40000000),
+                ("💎 프리미엄 등급", 4000, 80000000),
+            ]
+
+            for t_name, req_cnt, req_rev in tiers:
+                cnt_pct = min(100.0, (curr_3m_cnt / req_cnt) * 100)
+                rev_pct = min(100.0, (curr_3m_rev / req_rev) * 100)
+                need_cnt = max(0, req_cnt - curr_3m_cnt)
+                need_rev = max(0, req_rev - curr_3m_rev)
+                daily_need_cnt = (need_cnt / remain_days) if remain_days > 0 else need_cnt
+                daily_need_rev = int(need_rev / remain_days) if remain_days > 0 else need_rev
+
+                with st.container(border=True):
+                    st.markdown(f"#### {t_name} (기준: 3개월 {req_cnt:,}건 이상 & 매출 {req_rev:,}원 이상)")
+                    tc1, tc2 = st.columns(2)
+                    with tc1:
+                        st.progress(cnt_pct / 100.0, text=f"📦 판매건수 달성률: {cnt_pct:.1f}% ({curr_3m_cnt:,} / {req_cnt:,}건)")
+                    with tc2:
+                        st.progress(rev_pct / 100.0, text=f"💰 매출액 달성률: {rev_pct:.1f}% ({curr_3m_rev:,} / {req_rev:,}원)")
+
+                    if need_cnt == 0 and need_rev == 0:
+                        st.success(f"🎉 축하합니다! 이미 **{t_name}** 달성 조건을 모두 충족하셨습니다!")
+                    else:
+                        st.info(
+                            f"🎯 **남은 목표:** 건수 **{need_cnt:,}건** / 매출 **{need_rev:,}원** 추가 필요 "
+                            f"👉 앞으로 {remain_days}일간 **하루 평균 {daily_need_cnt:.1f}건 ({daily_need_rev:,}원/일)** 판매하면 등급이 상승합니다!"
+                        )
+
+        with sub_f3:
+            st.subheader("🎁 객단가 2배 상승! 1+1(2개 묶음) & 무료배송 전환 마진 비교 설계기")
             bd1, bd2, bd3, bd4 = st.columns(4)
             with bd1:
                 b_unit_w = st.number_input("1개당 도매원가 (원)", value=8900, step=500)
@@ -1701,36 +1925,21 @@ try:
                 b_bundle_disc = st.number_input("2개 구매 시 고객 추가할인액 (원)", value=2000, step=500)
 
             fee_r = ledger_fee_rate / 100.0
-            # 1) 단품 1개 판매 (고객이 배송비 3,000원 별도 부담 가정)
             single_fee = int(round((b_unit_s + b_ship_cost) * fee_r))
             single_net = (b_unit_s + b_ship_cost) - b_unit_w - b_ship_cost - single_fee
 
-            # 2) 1+1 (2개 세트) + 무료배송 혜택 제공 시 (합배송으로 도매 택배비는 1번만 지출!)
             bundle2_pay = (b_unit_s * 2) - b_bundle_disc
             bundle2_fee = int(round(bundle2_pay * fee_r))
             bundle2_net = bundle2_pay - (b_unit_w * 2) - b_ship_cost - bundle2_fee
 
-            # 3) 2+1 (3개 세트) + 무료배송 혜택 제공 시
             bundle3_pay = (b_unit_s * 3) - (b_bundle_disc * 2)
             bundle3_fee = int(round(bundle3_pay * fee_r))
             bundle3_net = bundle3_pay - (b_unit_w * 3) - b_ship_cost - bundle3_fee
 
             bc1, bc2, bc3 = st.columns(3)
-            bc1.info(
-                f"📦 **단품 1개 판매 시 (유료배송)**\n\n"
-                f"- 고객 결제액: {b_unit_s:,}원 (+배송비 {b_ship_cost:,}원)\n"
-                f"- **내 통장 순수익: {single_net:,}원**"
-            )
-            bc2.success(
-                f"🔥 **[강력추천] 2개 세트 ({b_bundle_disc:,}원 할인 + 무료배송)**\n\n"
-                f"- 고객 결제액: **{bundle2_pay:,}원 (무료배송!)**\n"
-                f"- **내 통장 순수익: {bundle2_net:,}원** (단품 대비 **+{bundle2_net - single_net:,}원** 이득!)"
-            )
-            bc3.warning(
-                f"👑 **3개 패밀리 세트 ({b_bundle_disc*2:,}원 할인 + 무료배송)**\n\n"
-                f"- 고객 결제액: **{bundle3_pay:,}원 (무료배송!)**\n"
-                f"- **내 통장 순수익: {bundle3_net:,}원** (단품 대비 **+{bundle3_net - single_net:,}원** 이득!)"
-            )
+            bc1.info(f"📦 **단품 1개 판매 시 (유료배송)**\n\n- 고객 결제액: {b_unit_s:,}원 (+배송비 {b_ship_cost:,}원)\n- **내 통장 순수익: {single_net:,}원**")
+            bc2.success(f"🔥 **[강력추천] 2개 세트 ({b_bundle_disc:,}원 할인 + 무료배송)**\n\n- 고객 결제액: **{bundle2_pay:,}원 (무료배송!)**\n- **내 통장 순수익: {bundle2_net:,}원** (단품 대비 **+{bundle2_net - single_net:,}원** 이득!)")
+            bc3.warning(f"👑 **3개 패밀리 세트 ({b_bundle_disc*2:,}원 할인 + 무료배송)**\n\n- 고객 결제액: **{bundle3_pay:,}원 (무료배송!)**\n- **내 통장 순수익: {bundle3_net:,}원** (단품 대비 **+{bundle3_net - single_net:,}원** 이득!)")
 
         with sub_f4:
             st.markdown("#### 🧮 1. 목표 마진 & 스토어 쿠폰 할인가 역산 시뮬레이터")
