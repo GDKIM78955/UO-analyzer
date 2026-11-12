@@ -19,7 +19,7 @@ KST = timezone(timedelta(hours=9))
 today = datetime.now(KST).date()
 
 # ==========================================
-# 1. 핵심 데이터베이스 (시즌 기념일 / 지재권 금지어 / KC인증 / 도서산간 키워드)
+# 1. 핵심 데이터베이스 (시즌 기념일 / 지재권 금지어 / 블로그 저품질 금칙어 / KC인증 / 도서산간)
 # ==========================================
 SEASONAL_EVENTS = [
     {"month": 1, "day": 1, "name": "신정 / 새해 다짐 시즌", "items": "다이어리, 플래너, 홈트레이닝 용품, 독서대, 영양제 케이스", "keywords": "새해선물, 갓생템, 다이어리꾸미기, 홈트기구"},
@@ -58,6 +58,13 @@ LEGAL_RISK_DICT = {
     "최고": ("표시광고법 절대적 표현 주의", "프리미엄 / 베스트"),
     "최초": ("표시광고법 입증 필요 단어", "신개념 / 업그레이드형"),
 }
+
+# 네이버 블로그 검색 누락(저품질) 유발 주의 상업성/스팸성 금칙어 사전
+BLOG_SPAM_WORDS = [
+    "최저가보장", "무조건환불", "100%치료", "당일입금", "무료나눔이벤트",
+    "원고료지원", "소정의수수료", "클릭시이동", "구매좌표", "총알배송보장",
+    "부작용없는", "기적의효과", "만병통치", "즉시할인쿠폰지급",
+]
 
 KC_CERT_RULES = [
     {
@@ -159,7 +166,7 @@ def load_data(url):
 
 
 # ==========================================
-# 3. 도매처 & 경쟁사 크롤링/감지 함수
+# 3. 도매처 품절 · 가격인상 · [신규] 도매가 인하(특가 찬스) 역탐지 함수
 # ==========================================
 def check_wholesale_status(url, recorded_wholesale_price=0, selling_price=0, fee_rate=5.6):
     if not url or pd.isna(url) or not str(url).startswith("http"):
@@ -202,17 +209,29 @@ def check_wholesale_status(url, recorded_wholesale_price=0, selling_price=0, fee
             if margin_pct < 10.0:
                 return "🟠 역마진/저마진 주의", f"현재 마진율 {margin_pct:.1f}% (순수익 {est_margin:,}원) - 판매가 인상 권장!"
 
+        # 페이지 내 가격 변동(인상 경고 & 인하 특가 찬스) 양방향 감지
         if recorded_wholesale_price > 1000:
             price_matches = re.findall(r"([1-9][0-9]{0,2}(?:,[0-9]{3})+)\s*원", page_text)
             extracted_prices = [int(p.replace(",", "")) for p in price_matches]
+
             higher_candidates = [
                 p for p in extracted_prices
                 if int(recorded_wholesale_price * 1.05) <= p <= int(recorded_wholesale_price * 1.6)
             ]
+            lower_candidates = [
+                p for p in extracted_prices
+                if int(recorded_wholesale_price * 0.5) <= p <= int(recorded_wholesale_price * 0.94)
+            ]
+
             if higher_candidates and recorded_wholesale_price not in extracted_prices:
                 suspect_price = min(higher_candidates, key=lambda x: abs(x - recorded_wholesale_price))
                 diff = suspect_price - recorded_wholesale_price
-                return "🟠 도매가 인상 의심", f"시트원가({recorded_wholesale_price:,}원) 대비 페이지 내 {suspect_price:,}원(+{diff:,}원) 감지됨"
+                return "🟠 도매가 인상 의심", f"시트원가({recorded_wholesale_price:,}원) 대비 페이지 내 {suspect_price:,}원(+{diff:,}원 인상) 감지됨"
+
+            if lower_candidates and recorded_wholesale_price not in extracted_prices:
+                drop_price = max(lower_candidates)
+                save_amt = recorded_wholesale_price - drop_price
+                return "🔵 도매가 인하 찬스!", f"시트원가({recorded_wholesale_price:,}원) 대비 {drop_price:,}원(-{save_amt:,}원 인하) 감지! 카페 특가 이벤트 찬스!"
 
         return "🟢 정상 판매중", "특이사항 없음 (정상 발주 가능)"
 
@@ -447,16 +466,16 @@ try:
 
     with st.sidebar:
         st.markdown("## 🛒 위탁판매 컨트롤 타워")
-        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 31대 기능 탑재)")
+        st.caption(f"📅 오늘: {today.strftime('%Y-%m-%d')} (총 35대 기능 탑재)")
         st.markdown("---")
 
         main_menu = st.radio(
             "📂 작업할 워크스페이스를 선택하세요",
             [
                 "📅 1. 일일루틴·시즌·KC·사입전환",
-                "🚨 2. 품절·성적표·좀비상품 진단",
-                "📦 3. 발주·도서산간·송장·CS·리뷰",
-                "🎨 4. 마케팅·Top3기획전·후킹·UTM",
+                "🚨 2. 품절·특가찬스·성적표·좀비진단",
+                "📦 3. 발주·송장·반품정산·CS·리뷰",
+                "🎨 4. 마케팅·태그10·저품질검사·UTM",
                 "💰 5. 장부·등급·옵션규정·자금·세금",
             ],
         )
@@ -473,7 +492,7 @@ try:
             st.cache_data.clear()
             st.rerun()
 
-    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (31대 기능 마스터 버전)")
+    st.title("🛒 스마트스토어 위탁판매 & 블로그 올인원 ERP (35대 기능 최종 마스터판)")
     golden_events = [e for e in upcoming_list if e["d_day"] <= 38]
     if golden_events:
         ge = golden_events[0]
@@ -483,7 +502,7 @@ try:
         )
 
     # ==================================================================================
-    # MENU 1: 📅 일일루틴·시즌·KC·사입전환 (일일루틴 체크리스트 + 시즌 달력 + KC인증 판독 + 소량사입 전환 ROI)
+    # MENU 1: 📅 일일루틴·시즌·KC·사입전환
     # ==================================================================================
     if main_menu == "📅 1. 일일루틴·시즌·KC·사입전환":
         sub_s0, sub_s1, sub_s2, sub_s3 = st.tabs([
@@ -495,19 +514,17 @@ try:
 
         with sub_s0:
             st.subheader("✅ 하루 15분! 스마트스토어 & 블로그 위탁판매 일일 마감 루틴")
-            st.write("기능이 많아도 매일 아래 **6단계 순서대로 체크하며 15분만 투자**하면 품절 페널티 0건, 빠른 발주, 꾸준한 블로그 유입이 유지됩니다.")
-
             rc1, rc2 = st.columns(2, gap="large")
             with rc1:
                 st.markdown("#### ☀️ 오전 루틴 (출근 직후 5분 — 품절 방어 & 발주)")
-                chk1 = st.checkbox("1️⃣ [2번 메뉴] 전체 상품 도매처 품절·단종·가격인상 스캔 돌리기", value=False)
+                chk1 = st.checkbox("1️⃣ [2번 메뉴] 전체 상품 도매처 품절·가격인상·특가찬스 스캔 돌리기", value=False)
                 chk2 = st.checkbox("2️⃣ [3번 메뉴] 스마트스토어 신규 주문 엑셀 다운로드 ➡️ 도매처 발주 변환 (도서산간·진상고객 확인)", value=False)
                 chk3 = st.checkbox("3️⃣ [2번 메뉴] 품절 발생 시 스토어 '판매중지' 처리 & 블로그 죽은 링크 교체", value=False)
 
             with rc2:
                 st.markdown("#### 🌙 오후/저녁 루틴 (퇴근 전 10분 — 송장·마케팅·장부)")
                 chk4 = st.checkbox("4️⃣ [3번 메뉴] 도매처 출고 송장번호 다운로드 ➡️ 스마트스토어 일괄 발송 처리", value=False)
-                chk5 = st.checkbox("5️⃣ [4번 메뉴] 시즌 추천 상품 인포그래픽 카드 + SEO 원고로 블로그/카페 1포스팅 업로드", value=False)
+                chk5 = st.checkbox("5️⃣ [4번 메뉴] 시즌 상품 인포그래픽 + 저품질 검사 완료 원고로 블로그/카페 1포스팅 업로드", value=False)
                 chk6 = st.checkbox("6️⃣ [3·5번 메뉴] 신규 리뷰 사장님 답글 달기 & 구글 시트 판매수량 업데이트", value=False)
 
             done_cnt = sum([chk1, chk2, chk3, chk4, chk5, chk6])
@@ -643,11 +660,6 @@ try:
 
         with sub_s3:
             st.subheader("📦 위탁판매 효자 상품 ➡️ '소량 사입(도매꾹·1688)' 전환 시점 손익분기(ROI) 판독기")
-            st.write(
-                "위탁판매로 월 20~30개 이상 꾸준히 팔리는 검증된 상품이 나왔다면, "
-                "**계속 비싼 위탁 단가로 발주하는 것보다 소량 사입(50~100개)으로 전환할 때 몇 개만 팔면 원금을 회수하는지** 계산합니다."
-            )
-
             roi_c1, roi_c2, roi_c3 = st.columns(3)
             with roi_c1:
                 cur_sell_p = st.number_input("현재 스토어 판매가 (원)", value=21900, step=500)
@@ -672,39 +684,29 @@ try:
             monthly_gain = monthly_bulk_total - monthly_drop_total
 
             r_col1, r_col2, r_col3 = st.columns(3)
-            r_col1.info(
-                f"📊 **개당 순수익 비교**\n\n"
-                f"- 위탁 유지 시: 개당 **{drop_unit_profit:,}원**\n"
-                f"- 사입 전환 시: 개당 **{bulk_unit_profit:,}원** (**+{bulk_unit_profit - drop_unit_profit:,}원** 상승!)"
-            )
-            r_col2.warning(
-                f"⚖️ **사입 투자금 & 원금 회수 손익분기점**\n\n"
-                f"- 초기 사입 투자금({bulk_moq}개): **{total_bulk_invest:,}원**\n"
-                f"- 딱 **{bep_units}개**만 팔면 투자 원금 100% 회수! (이후 {bulk_moq - bep_units}개는 전액 순수익)"
-            )
-            r_col3.success(
-                f"💰 **월 {est_monthly_sales}개 판매 시 추가 수익**\n\n"
-                f"- 위탁 월 순수익: {monthly_drop_total:,}원\n"
-                f"- 사입 월 순수익: **{monthly_bulk_total:,}원** (매월 **+{monthly_gain:,}원** 추가 수익!)"
-            )
+            r_col1.info(f"📊 **개당 순수익 비교**\n\n- 위탁 유지 시: 개당 **{drop_unit_profit:,}원**\n- 사입 전환 시: 개당 **{bulk_unit_profit:,}원** (**+{bulk_unit_profit - drop_unit_profit:,}원** 상승!)")
+            r_col2.warning(f"⚖️ **사입 투자금 & 원금 회수 손익분기점**\n\n- 초기 사입 투자금({bulk_moq}개): **{total_bulk_invest:,}원**\n- 딱 **{bep_units}개**만 팔면 투자 원금 100% 회수!")
+            r_col3.success(f"💰 **월 {est_monthly_sales}개 판매 시 추가 수익**\n\n- 위탁 월 순수익: {monthly_drop_total:,}원\n- 사입 월 순수익: **{monthly_bulk_total:,}원** (매월 **+{monthly_gain:,}원** 추가 수익!)")
 
     # ==================================================================================
-    # MENU 2: 🚨 품절·성적표·좀비상품 진단
+    # MENU 2: 🚨 품절·특가찬스·성적표·좀비진단 (품절/인상/도매가인하 역탐지 + 블로그역추적 + 경쟁사 + 성적표 + 좀비처방)
     # ==================================================================================
-    elif main_menu == "🚨 2. 품절·성적표·좀비상품 진단":
+    elif main_menu == "🚨 2. 품절·특가찬스·성적표·좀비진단":
         sub_m1, sub_m2, sub_m3, sub_m4, sub_m5 = st.tabs([
-            "🔍 1. 도매처 품절·단종·가격인상 스캔",
+            "🔍 1. 품절·가격인상·🔵도매가인하(특가찬스) 스캔",
             "📝 2. 블로그·카페 죽은 홍보링크 역추적",
             "⚔️ 3. 경쟁사 스토어 최저가 비교·감시",
             "🏆 4. 도매처(공급사)별 수익성·안정성 성적표",
-            "🧟 5. 좀비 상품(판매부진·적자) 자동 진단 & 리뉴얼 처방전",
+            "🧟 5. 좀비 상품(판매부진·적자) 자동 진단 & 처방전",
         ])
 
         with sub_m1:
-            st.subheader("🔍 등록 상품 도매처 품절·단종 & 기습 가격 인상 일괄 스캔")
-            if st.button("🚀 전체 상품 도매처 품절 & 가격 변동 실시간 스캔 실행", type="primary", use_container_width=True):
+            st.subheader("🔍 등록 상품 품절·단종 · 기습 가격인상 · 🔵도매가 인하(특가 찬스) 양방향 스캔")
+            st.write("도매처 품절과 원가 인상 위험뿐만 아니라, **도매처가 재고 소진을 위해 공급가를 내렸을 때(`🔵 도매가 인하 찬스!`)**까지 포착하여 카페/블로그 특가 이벤트 기회를 알려줍니다.")
+
+            if st.button("🚀 전체 상품 도매처 품절 & 가격 변동(인상/인하) 실시간 스캔 실행", type="primary", use_container_width=True):
                 results, dead_blog_posts = [], []
-                progress_bar = st.progress(0, text="도매처 링크 및 가격 상태를 점검하고 있습니다...")
+                progress_bar = st.progress(0, text="도매처 링크 및 양방향 가격 변동을 점검하고 있습니다...")
                 total_items = len(df)
 
                 for idx, row in df.iterrows():
@@ -739,11 +741,12 @@ try:
 
             if "last_scan_results" in st.session_state:
                 results = st.session_state["last_scan_results"]
-                m1, m2, m3, m4 = st.columns(4)
+                m1, m2, m3, m4, m5 = st.columns(5)
                 m1.metric("🟢 정상 판매 가능", f"{sum(1 for r in results if '🟢' in r['상태'])}건")
                 m2.metric("🔴 품절/단종 위험", f"{sum(1 for r in results if '🔴' in r['상태'])}건")
-                m3.metric("🟠 가격인상/역마진 주의", f"{sum(1 for r in results if '🟠' in r['상태'])}건")
-                m4.metric("🟡 수동 확인 필요", f"{sum(1 for r in results if '🟡' in r['상태'])}건")
+                m3.metric("🟠 원가인상/저마진 주의", f"{sum(1 for r in results if '🟠' in r['상태'])}건")
+                m4.metric("🔵 도매가 인하(특가찬스)", f"{sum(1 for r in results if '🔵' in r['상태'])}건")
+                m5.metric("🟡 수동 확인 필요", f"{sum(1 for r in results if '🟡' in r['상태'])}건")
 
                 st.dataframe(
                     pd.DataFrame(results), use_container_width=True, hide_index=True,
@@ -878,15 +881,16 @@ try:
             st.dataframe(pd.DataFrame(zombie_rows), use_container_width=True, hide_index=True)
 
     # ==================================================================================
-    # MENU 3: 📦 발주·도서산간·송장·CS·리뷰
+    # MENU 3: 📦 발주·송장·반품정산·CS·리뷰 (발주변환 + 송장병합 + [신규]반품택배비손익정산기 + 블랙컨슈머 + CS + 리뷰답글)
     # ==================================================================================
-    elif main_menu == "📦 3. 발주·도서산간·송장·CS·리뷰":
-        sub_o1, sub_o2, sub_o3, sub_o4, sub_o5 = st.tabs([
-            "📦 1. 주문서 ➡️ 도매처 발주 변환 (+도서산간·진상 경보)",
-            "🚚 2. 도매처 송장 ➡️ 스토어 일괄 발송 변환",
-            "🛡️ 3. 상습 반품·진상 고객 요주의 DB",
-            "💬 4. 고객 CS 답변 1초 복사함",
-            "⭐ 5. 스마트스토어 리뷰 답글(사장님 댓글) 생성기",
+    elif main_menu == "📦 3. 발주·송장·반품정산·CS·리뷰":
+        sub_o1, sub_o2, sub_o_ret, sub_o3, sub_o4, sub_o5 = st.tabs([
+            "📦 1. 주문서 ➡️ 도매처 발주 변환",
+            "🚚 2. 도매처 송장 ➡️ 일괄 발송 변환",
+            "🔄 3. 반품·교환 택배비 손익 정산기",
+            "🛡️ 4. 상습 반품·진상 고객 요주의 DB",
+            "💬 5. 고객 CS 답변 1초 복사함",
+            "⭐ 6. 리뷰 답글(사장님 댓글) 생성기",
         ])
 
         if "blacklist_keywords" not in st.session_state:
@@ -1033,6 +1037,57 @@ try:
                     mime="text/csv", type="primary", use_container_width=True
                 )
 
+        # ------------------------------------------
+        # 신규 기능: 반품·교환 발생 시 '도매처 vs 내 스토어' 택배비 손익 정산기
+        # ------------------------------------------
+        with sub_o_ret:
+            st.subheader("🔄 반품·교환 발생 시 '도매처 vs 내 스토어' 택배비 손익 정산기")
+            st.write(
+                "반품이 접수되었을 때 **스마트스토어에서 고객에게 얼마를 차감(청구)해야 내 통장에서 돈이 새어나가지 않는지** "
+                "초기 배송비 조건(무료/유료)과 도매처 반품비 규정에 맞춰 정확히 계산합니다."
+            )
+
+            rt1, rt2, rt3, rt4 = st.columns(4)
+            with rt1:
+                ret_reason = st.selectbox("1️⃣ 반품/교환 사유", ["단순변심 (색상·사이즈 불만족 등 고객 귀책)", "상품불량 / 오배송 (도매처·판매자 귀책)"])
+            with rt2:
+                init_ship_type = st.selectbox("2️⃣ 내 스토어 초기 배송비 조건", ["유료배송 (고객이 결제 시 3,000원 냈음)", "무료배송 (내가 초도 배송비 부담했음)"])
+            with rt3:
+                w_init_ship = st.number_input("3️⃣ 도매처 초도 출고 택배비 (원)", value=3000, step=500)
+            with rt4:
+                w_ret_ship = st.number_input("4️⃣ 도매처 반품 회수 택배비 (편도, 원)", value=3500, step=500)
+
+            if "상품불량" in ret_reason:
+                charge_to_customer = 0
+                pay_to_wholesale = 0
+                my_net_loss = 0
+                guide_msg = "🟢 **[판매자/도매처 귀책]** 고객 청구액 **0원**. 도매처에 불량 사진(운송장+제품 사진)을 전달하여 **도매처 100% 부담 무료 반품/교환**으로 처리하세요 (내 손실 0원)."
+            else:
+                if "무료배송" in init_ship_type:
+                    # 무료배송 상품 단순변심 반품: 초도배송비 + 반품회수비 왕복 모두 고객에게 청구해야 본전
+                    charge_to_customer = w_init_ship + w_ret_ship
+                    pay_to_wholesale = w_init_ship + w_ret_ship
+                    my_net_loss = 0
+                    guide_msg = (
+                        f"🚨 **[무료배송 상품 단순변심 반품]** 처음 보낼 때 우리가 대납했던 초도 배송비({w_init_ship:,}원)까지 합쳐서 "
+                        f"**왕복 택배비 총 `{charge_to_customer:,}원`을 고객 환불금에서 차감**하셔야 손해가 나지 않습니다!"
+                    )
+                else:
+                    # 유료배송 상품 단순변심 반품: 고객이 이미 초기 배송비를 냈고 환불 시 상품값만 돌려주므로(또는 전체환불 후 왕복차감), 스마트스토어 기준 안내
+                    charge_to_customer = w_init_ship + w_ret_ship
+                    pay_to_wholesale = w_init_ship + w_ret_ship
+                    my_net_loss = 0
+                    guide_msg = (
+                        f"💡 **[유료배송 상품 단순변심 반품]** 스마트스토어 반품 승인 시 초기 배송비까지 전액 환불되는 구조라면 **왕복 `{charge_to_customer:,}원`**을 청구하시고, "
+                        f"초기 배송비를 제외하고 환불된다면 **편도 회수비 `{w_ret_ship:,}원`**만 청구하세요!"
+                    )
+
+            rc_a, rc_b, rc_c = st.columns(3)
+            rc_a.metric("💳 고객에게 청구(차감)할 반품비", f"{charge_to_customer:,}원")
+            rc_b.metric("🏢 도매처에 정산될 총 왕복 운임", f"{pay_to_wholesale:,}원")
+            rc_c.metric("🛡️ 내 스토어 최종 손익 방어", f"{my_net_loss:,}원 (손실 없음)")
+            st.info(guide_msg)
+
         with sub_o3:
             st.subheader("🛡️ 상습 반품·부당 클레임 요주의 고객(블랙컨슈머) 필터 DB")
             st.session_state["blacklist_keywords"] = st.text_area(
@@ -1051,7 +1106,7 @@ try:
             with cs_col3:
                 cs_delay_date = st.text_input("🚚 예상 출고일 / 지연 안내일", value="내일(금요일)")
             with cs_col4:
-                cs_return_fee = st.text_input("💵 왕복 반품 배송비", value="6,000원")
+                cs_return_fee = st.text_input("💵 왕복 반품 배송비", value="6,500원")
 
             cs_grid1, cs_grid2 = st.columns(2, gap="large")
             msg_soldout = f"안녕하세요, {cs_cust_name} 고객님! 주문해주신 [{cs_prod_name}] 출고 검수 중 공급처의 갑작스러운 재고 소진 및 마지막 잔여 수량 불량이 확인되어 부득이하게 정상 발송이 어려운 상황입니다. 결제 금액이 묶이지 않도록 우선 취소 처리를 도와드리고자 하며, 불편을 드려 진심으로 죄송합니다."
@@ -1081,17 +1136,17 @@ try:
                 render_copy_box("😍 1. [별점 5점 극찬 리뷰용] 재구매 & 단골 유도 감사 답글", reply_5star, "rv5", "#03c75a", 190)
                 render_copy_box("🙂 2. [별점 3~4점 아쉬움 리뷰용] 피드백 수용 & 신뢰도 상승 답글", reply_3star, "rv3", "#2563eb", 190)
                 render_copy_box("🙇‍♂️ 3. [별점 1~2점 불만/불량 리뷰용] 다른 예비 구매자를 안심시키는 사과 답글", reply_1star, "rv1", "#dc2626", 195)
-                # ==================================================================================
-    # MENU 4: 🎨 마케팅·Top3기획전·후킹·UTM
+      # ==================================================================================
+    # MENU 4: 🎨 마케팅·태그10·저품질검사·UTM
     # ==================================================================================
-    elif main_menu == "🎨 4. 마케팅·Top3기획전·후킹·UTM":
+    elif main_menu == "🎨 4. 마케팅·태그10·저품질검사·UTM":
         sub_mk1, sub_mk_top3, sub_mk_hook, sub_mk2, sub_mk3, sub_mk4, sub_mk5 = st.tabs([
             "🎨 1. 5종 단품 인포그래픽",
             "🏆 2. Top 3 묶음 기획전 카드",
             "⚡ 3. 상세페이지 3초 후킹 브릿지",
             "🖼️ 4. 썸네일(1000x1000) 합성",
             "📢 5. 상세 상·하단 공지 배너",
-            "🚀 6. SEO 상품명·원고·금지어",
+            "🚀 6. SEO 상품명·검색태그10·블로그 저품질 검사",
             "🔗 7. 블로그·카페 UTM 추적링크",
         ])
 
@@ -1639,8 +1694,11 @@ try:
                 """
                 components.html(notice_banner_html, height=420, scrolling=False)
 
+        # ------------------------------------------
+        # 업그레이드: SEO 상품명 + [신규] 스마트스토어 검색 태그 10개 조합기 + [신규] 블로그 저품질·글자수·밀도 신호등 검사기
+        # ------------------------------------------
         with sub_mk4:
-            st.subheader("🚀 SEO 황금 상품명·원고 생성기 & 상표권/식약처 법적 금지어 실시간 검출기")
+            st.subheader("🚀 SEO 상품명 · 스마트스토어 검색 태그 10개 · 블로그 저품질(누락) 신호등 검사기")
             seo_sel = st.selectbox("시트 상품 불러오기 (또는 직접 입력)", product_list, key="seo_prod_sel")
             if seo_sel != "➕ [직접 수동 입력 / 신규 상품 작성]":
                 s_idx = int(seo_sel.split(" | ")[0])
@@ -1657,8 +1715,8 @@ try:
             with sc1:
                 raw_wholesale_title = st.text_input("도매처 원본 상품명 (지재권·금지어 자동 스캔 대상)", value=raw_default_name)
                 target_main_kw = st.text_input("핵심 타겟 키워드 (쉼표 구분)", value="감성캠핑용품, 접이식우드테이블, 피크닉테이블")
-                target_sub_kw = st.text_input("용도 / 타겟층 수식어", value="차박, 캠핑초보, 베란다홈캠핑, 집들이선물")
-                spec_kw = st.text_input("핵심 스펙 / 특징 단어", value="초경량, 원목, 파우치증정")
+                target_sub_kw = st.text_input("용도 / 타겟층 수식어 (검색 태그 자동 반영)", value="차박캠핑, 캠핑초보장비, 베란다홈캠핑, 집들이선물추천, 감성피크닉")
+                spec_kw = st.text_input("핵심 스펙 / 특징 단어", value="초경량, 원목테이블, 파우치증정")
                 post_tone = st.radio(
                     "📝 생성할 블로그/카페 홍보 원고 스타일",
                     ["① 블로그 내돈내산·실사용 추천 후기톤", "② 블로그 정보성 꼼꼼 비교·분석톤", "③ 네이버 카페 회원 전용 공동구매·특가 공지톤"],
@@ -1667,7 +1725,7 @@ try:
                 combined_check_text = f"{raw_wholesale_title} {target_main_kw} {target_sub_kw} {spec_kw}"
                 found_risks = [f"- ❌ **`{bw}`** ({rs}) ➡️ 권장 대체어: **`{alt}`**" for bw, (rs, alt) in LEGAL_RISK_DICT.items() if bw in combined_check_text]
                 if found_risks:
-                    st.error("🚨 **[지재권·법적 금지어 경보]** 입력한 단어 중 내용증명 또는 스토어 페널티 위험 단어가 감지되었습니다!\n\n" + "\n".join(found_risks))
+                    st.error("🚨 **[지재권·법적 금지어 경보]** 내용증명 또는 스토어 페널티 위험 단어가 감지되었습니다!\n\n" + "\n".join(found_risks))
                 else:
                     st.success("🛡️ **[지재권·법적 금지어 통과]** 상표권 침해 및 의료기기법/식약처 위반 금지어가 감지되지 않았습니다.")
 
@@ -1703,6 +1761,18 @@ try:
                 final_seo_list.append(f"{joined} ({len(joined)}자)")
 
             seo_names_block = "\n".join([f"{i+1}. {name}" for i, name in enumerate(final_seo_list)])
+
+            # [신규] 스마트스토어 검색어 태그(Tag) 10개 자동 조합 (상품명 단어 중복 최소화 + 서브/시즌 키워드 조합)
+            tag10_pool = sub_kws + main_kws + spec_kws + [f"{tk}추천" for tk in base_tokens[:3]] + ["가성비선물", "자취방필수템", "센스있는선물", "실용적인선물"]
+            store_tags_10 = []
+            for item_t in tag10_pool:
+                clean_t = re.sub(r"[^가-힣a-zA-Z0-9]", "", item_t)
+                if clean_t and clean_t not in store_tags_10 and len(clean_t) <= 12:
+                    store_tags_10.append(clean_t)
+                if len(store_tags_10) == 10:
+                    break
+            store_tags_comma_str = ",".join(store_tags_10)
+
             all_tag_seeds = base_tokens + main_kws + sub_kws + spec_kws + ["스마트스토어추천", "가성비템", "내돈내산추천"]
             hashtags = []
             for tg in all_tag_seeds:
@@ -1712,15 +1782,49 @@ try:
             hashtag_str = " ".join(hashtags[:15])
 
             if "①" in post_tone:
-                blog_draft = f"[추천 타이틀] {m1_k} 고민 끝! {clean_core_name} 실사용 솔직 정리 ✨\n\n안녕하세요! 요즘 {s1_k} 준비하면서 정착하게 된 가성비 끝판왕 '{clean_core_name}'을 소개해 드립니다!\n\n📌 [핵심 장점 3가지]\n1️⃣ {sp1_k} 사양이라 마감 퀄리티가 탄탄합니다.\n2️⃣ 초보자도 1분이면 바로 세팅할 수 있을 만큼 간편해요 ({sp2_k}).\n3️⃣ {s1_k}뿐만 아니라 {s2_k} 용도로도 디자인이 깔끔합니다.\n\n👉 공식 스마트스토어({raw_default_price:,}원 특가): {raw_default_url}\n\n{hashtag_str}"
+                blog_draft = f"[추천 타이틀] {m1_k} 고민 끝! {clean_core_name} 실사용 솔직 정리 ✨\n\n안녕하세요! 요즘 {s1_k} 준비하면서 정말 많은 제품을 비교해 봤는데요. 저가형은 내구성이 아쉽고 유명 브랜드는 가격이 부담스럽더라고요. 그러다 결국 정착하게 된 가성비 끝판왕 '{clean_core_name}'을 소개해 드립니다!\n\n📌 [직접 써보고 느낀 핵심 장점 3가지]\n1️⃣ {sp1_k} 사양이라 실제로 받아보니 마감 퀄리티가 기대 이상으로 탄탄합니다.\n2️⃣ 초보자도 설명서 없이 1분이면 바로 세팅할 수 있을 만큼 간편해요 ({sp2_k}).\n3️⃣ {s1_k}뿐만 아니라 {s2_k} 용도로 활용하기에도 디자인이 정말 깔끔합니다.\n\n👉 공식 스마트스토어({raw_default_price:,}원 특가): {raw_default_url}\n\n{hashtag_str}"
             elif "②" in post_tone:
-                blog_draft = f"[추천 타이틀] {m1_k} 실패 없이 고르는 법! ({clean_core_name} 비교 분석) 📊\n\n🔍 [구매 전 반드시 확인해야 할 3대 기준]\n✔️ 체크 1. 소재와 내구성: '{sp1_k}' 여부를 꼭 확인하세요.\n✔️ 체크 2. 휴대성과 구성품: '{sp2_k}' 등 필수 구성이 포함되어 있는지 따져보세요.\n✔️ 체크 3. 빠른 국내 발송 & AS: 불량 시 즉시 교환되는 곳인지가 핵심입니다.\n\n👉 공식 판매처 상세페이지 바로가기: {raw_default_url}\n\n{hashtag_str}"
+                blog_draft = f"[추천 타이틀] {m1_k} 실패 없이 고르는 법! ({clean_core_name} 비교 분석) 📊\n\n🔍 [구매 전 반드시 확인해야 할 3대 기준]\n✔️ 체크 1. 소재와 내구성: 잠깐 쓰고 버릴 제품이 아니라면 '{sp1_k}' 여부를 꼭 확인하세요.\n✔️ 체크 2. 휴대성과 구성품: '{sp2_k}' 등 필수 구성이 기본 포함되어 있는지 따져봐야 추가 지출이 없습니다.\n✔️ 체크 3. 빠른 국내 발송 & AS: 불량 시 즉시 교환되는 곳인지가 핵심입니다.\n\n👉 공식 판매처 상세페이지 바로가기: {raw_default_url}\n\n{hashtag_str}"
             else:
                 blog_draft = f"📢 [카페 회원 전용 특가 공지] {clean_core_name} 한정수량 안내 🔥\n\n• 상품명: {clean_core_name} ({sp1_k} / {sp2_k})\n• 회원 특별가: {raw_default_price:,}원\n• 출고 안내: 평일 오후 2시 이전 주문 시 당일 발송\n\n👉 네이버 스마트스토어 바로가기: {raw_default_url}\n\n{hashtag_str}"
 
             with sc2:
-                render_copy_box("🏷️ SEO 추천 상품명 5가지 (금지어·특수문자·중복단어 제거 완료)", seo_names_block, "seo_names", "#1e3a8a", 215)
-                render_copy_box("📝 블로그·카페 맞춤형 포스팅 원고 & 해시태그 15개", blog_draft, "blog_draft", "#03c75a", 360)
+                render_copy_box("🏷️ 1. SEO 추천 상품명 5가지 (금지어·특수문자·중복단어 제거 완료)", seo_names_block, "seo_names", "#1e3a8a", 190)
+                render_copy_box(
+                    "🔖 2. 스마트스토어 [검색어 태그 10개] 원클릭 복사 (스토어 상품등록 하단 태그창에 그대로 붙여넣기)",
+                    store_tags_comma_str, "store_tag10", "#6d28d9", 130,
+                    display_text=f"📌 생성된 10대 검색태그 (쉼표 구분): {store_tags_comma_str}"
+                )
+                render_copy_box("📝 3. 블로그·카페 맞춤형 포스팅 원고 & 해시태그 15개", blog_draft, "blog_draft", "#03c75a", 300)
+
+            # [신규] 블로그 '저품질(검색 누락) 방지' 금칙어 & 글자수·키워드 밀도 신호등 검사기
+            st.markdown("---")
+            st.markdown("#### 🚦 [블로그 검색 누락 방지] 원고 글자수 · 키워드 반복 밀도 · 스팸 금칙어 신호등 검사기")
+            st.caption("블로그에 직접 작성하신 원고를 아래 창에 붙여넣으면, 네이버 C-Rank / DIA+ 알고리즘 기준 적정 글자수, 키워드 과다 반복(스터핑), 상업성 누락 위험 단어를 실시간 진단합니다.")
+
+            chk_draft_input = st.text_area("점검할 블로그 본문 원고 입력 (위 자동 생성 원고가 기본 입력되어 있습니다)", value=blog_draft, height=140)
+            char_no_space = len(re.sub(r"\s+", "", chk_draft_input))
+            kw_repeat_cnt = chk_draft_input.count(m1_k) if m1_k else 0
+            detected_spam = [sw for sw in BLOG_SPAM_WORDS if sw in chk_draft_input.replace(" ", "")]
+
+            d_c1, d_c2, d_c3 = st.columns(3)
+            with d_c1:
+                if 800 <= char_no_space <= 2200:
+                    st.success(f"🟢 **공백 제외 글자수: {char_no_space:,}자 (최적!)**\n\n네이버 스마트블록 상위노출 권장 분량(800~2,000자)에 딱 맞습니다.")
+                else:
+                    st.info(f"🟡 **공백 제외 글자수: {char_no_space:,}자**\n\n초안 원고에 내 경험담을 2~3문단만 더 보태서 **800~1,500자**로 맞추면 상위노출 확률이 훨씬 높아집니다!")
+            with d_c2:
+                if 2 <= kw_repeat_cnt <= 8:
+                    st.success(f"🟢 **핵심키워드(`{m1_k}`) 반복: {kw_repeat_cnt}회 (안전)**\n\n적정 반복 횟수(3~7회) 이내로 어뷰징 위험이 없습니다.")
+                elif kw_repeat_cnt > 8:
+                    st.error(f"🔴 **핵심키워드(`{m1_k}`) 과다 반복: {kw_repeat_cnt}회!**\n\n9회 이상 반복 시 키워드 스터핑(어뷰징)으로 검색 누락될 수 있으니 줄여주세요.")
+                else:
+                    st.warning(f"🟡 **핵심키워드(`{m1_k}`) 반복: {kw_repeat_cnt}회**\n\n본문 중간에 자연스럽게 3~5회 들어가도록 추가해 주세요.")
+            with d_c3:
+                if detected_spam:
+                    st.error(f"🔴 **블로그 저품질 위험 단어 감지!**\n\n감지된 단어: `{', '.join(detected_spam)}` ➡️ 즉시 삭제하거나 순화하세요!")
+                else:
+                    st.success("🟢 **상업성 스팸 금칙어: 0개 (안전 통과)**\n\n블로그 저품질을 유발하는 위험 상업 문구가 없습니다.")
 
         with sub_mk5:
             st.subheader("🔗 블로그·카페 유입 경로 추적 링크(네이버 애널리틱스 `nt_source` 파라미터) 생성기")
@@ -1741,7 +1845,7 @@ try:
                 st.info("💡 위 추적 URL을 복사해 [인포그래픽 제작] 탭의 구매 링크 칸에 넣으면 어떤 블로그 글에서 결제가 일어났는지 스마트스토어 통계에 기록됩니다!")
 
     # ==================================================================================
-    # MENU 5: 💰 장부·등급·옵션규정·자금·세금 (장부 + 월별기록 + 등급진단 + 1+1세트&옵션규정 + 마진/ROAS/자금/세금 + 시트원본)
+    # MENU 5: 💰 장부·등급·옵션규정·자금·세금
     # ==================================================================================
     elif main_menu == "💰 5. 장부·등급·옵션규정·자금·세금":
         sub_f1, sub_f2, sub_f_tier, sub_f3, sub_f4, sub_f5 = st.tabs([
@@ -1982,35 +2086,25 @@ try:
 
             st.markdown("---")
             st.markdown("#### 🚨 스마트스토어 '옵션 추가금 한도(최저가 어뷰징 방지)' 규정 계산기")
-            st.caption("네이버 쇼핑은 대표 기본가를 싸게 걸고 옵션 추가금을 과도하게 높이는 행위를 어뷰징으로 간주해 노출을 차단합니다. 아래 합법 한도 내에서만 옵션가를 세팅하세요!")
-
             opt_c1, opt_c2 = st.columns([1.0, 1.4])
             with opt_c1:
                 base_rep_price = st.number_input("스토어 대표 기본 판매가 (할인 적용 후 실판매가, 원)", value=int(b_unit_s), step=500)
 
-            # 네이버 스마트스토어 옵션가 공식 규정:
-            # 1) 기본가 2,000원 미만: 옵션 추가금 0원 ~ +100% 이내
-            # 2) 기본가 2,000원 ~ 10,000원 미만: -50% ~ +100% 이내
-            # 3) 기본가 10,000원 이상: -50% ~ +50% 이내
             if base_rep_price < 2000:
-                min_opt_diff = 0
-                max_opt_diff = base_rep_price
+                min_opt_diff, max_opt_diff = 0, base_rep_price
                 rule_desc = "대표가 2,000원 미만 구간: 마이너스(-) 옵션 불가, 추가금은 최대 +100%까지만 허용"
             elif base_rep_price < 10000:
-                min_opt_diff = -int(base_rep_price * 0.5)
-                max_opt_diff = base_rep_price
+                min_opt_diff, max_opt_diff = -int(base_rep_price * 0.5), base_rep_price
                 rule_desc = "대표가 2,000원 ~ 10,000원 미만 구간: 옵션가 -50% ~ +100% 이내 허용"
             else:
-                min_opt_diff = -int(base_rep_price * 0.5)
-                max_opt_diff = int(base_rep_price * 0.5)
+                min_opt_diff, max_opt_diff = -int(base_rep_price * 0.5), int(base_rep_price * 0.5)
                 rule_desc = "대표가 10,000원 이상 구간: 옵션 추가금은 최대 +50%까지만 허용! (초과 시 등록 불가/페널티)"
 
             with opt_c2:
                 st.warning(
                     f"📏 **[{base_rep_price:,}원] 상품의 합법 옵션 추가금 허용 범위 ({rule_desc})**\n\n"
                     f"- **최소 옵션 차감 한도:** `{min_opt_diff:,}원` (옵션 실결제가 최소 **{base_rep_price + min_opt_diff:,}원**)\n"
-                    f"- **최대 옵션 추가금 한도:** **`+{max_opt_diff:,}원`** (옵션 실결제가 최대 **{base_rep_price + max_opt_diff:,}원**까지만 구성 가능!)\n"
-                    f"- 💡 1+1 세트를 옵션에 넣을 때 추가금이 `+{max_opt_diff:,}원`을 넘어가면 옵션 대신 **'추가상품'** 탭에 넣거나 별도 묶음 상품으로 등록하세요!"
+                    f"- **최대 옵션 추가금 한도:** **`+{max_opt_diff:,}원`** (옵션 실결제가 최대 **{base_rep_price + max_opt_diff:,}원**까지만 구성 가능!)"
                 )
 
         with sub_f4:
@@ -2057,7 +2151,6 @@ try:
 
             st.markdown("---")
             st.markdown("#### 💳 3. 위탁판매 '선결제 운전자금(돈 묶임 방지)' & 캐시플로우 시뮬레이터")
-            st.caption("고객 결제 대금이 네이버에서 정산되기 전, 도매처에 내 돈(또는 카드)으로 먼저 발주해야 하므로 주문 폭발 시 필요한 최소 회전 자금을 계산합니다.")
             cf1, cf2, cf3 = st.columns(3)
             with cf1:
                 daily_avg_orders = st.number_input("하루 평균 예상 주문 건수 (건/일)", value=10, step=5, min_value=1)
@@ -2104,4 +2197,4 @@ try:
             st.dataframe(df_monthly_raw, use_container_width=True)
 
 except Exception as e:
-    st.error(f"앱 실행 중 오류가 발생했습니다. 상세 에러: {e}")
+    st.error(f"앱 실행 중 오류가 발생했습니다. 상세 에러: {e}")          
