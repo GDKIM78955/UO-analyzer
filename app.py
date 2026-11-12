@@ -2000,7 +2000,7 @@ try:
                 # [7번 신규 기능] 상품군별 클레임·억지 무상반품 방어용 주의사항 배너
                 with bn_c1:
                     sel_claim_cat = st.selectbox("판매 상품 카테고리 선택", list(CLAIM_DEFENSE_DB.keys()))
-                     preset_c = CLAIM_DEFENSE_DB[sel_claim_cat]
+                    preset_c = CLAIM_DEFENSE_DB[sel_claim_cat]
                     c_title = st.text_input("배너 상단 제목", value=preset_c["title"])
                     c_rule1 = st.text_area("✔️ 사전 고지 사항 1 (소재/공정 특성)", value=preset_c["r1"], height=68)
                     c_rule2 = st.text_area("✔️ 사전 고지 사항 2 (측정/해상도/미세마감)", value=preset_c["r2"], height=68)
